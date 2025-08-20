@@ -3,36 +3,36 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Westpine Night — Prototype</title>
+  <title>Westpine Night — 2.0</title>
   <style>
     html, body { height: 100%; margin: 0; background:#0a0a0f; color:#e6e6f0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; }
-    #ui { position: fixed; inset: 0 0 auto 0; display:flex; gap:12px; align-items:center; padding:10px 14px; background: linear-gradient(180deg, rgba(10,10,15,.9), rgba(10,10,15,.25)); backdrop-filter: blur(4px); }
+    #ui { position: fixed; inset: 0 0 auto 0; display:flex; gap:12px; align-items:center; padding:10px 14px; background: linear-gradient(180deg, rgba(10,10,15,.9), rgba(10,10,15,.25)); backdrop-filter: blur(4px); z-index: 10; }
     #ui .pill { padding:4px 10px; border-radius:14px; background:#1b1b25; border:1px solid #2b2b38; box-shadow: inset 0 0 0 1px rgba(255,255,255,.03); font-size: 14px; }
     #ui .right { margin-left:auto; opacity:.95 }
+    #ui .inv { display:flex; gap:8px; align-items:center; }
     #game { display:block; margin:0 auto; image-rendering: pixelated; }
-    #overlay { position: fixed; inset:0; display:none; align-items:center; justify-content:center; background: rgba(0,0,0,.8); }
-    #overlay .card { background:#121219; border:1px solid #2b2b38; border-radius:16px; padding:20px; width:min(620px, 92vw); text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,.6); }
+    #overlay { position: fixed; inset:0; display:none; align-items:center; justify-content:center; background: rgba(0,0,0,.8); z-index: 20; }
+    #overlay .card { background:#121219; border:1px solid #2b2b38; border-radius:16px; padding:20px; width:min(680px, 92vw); text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,.6); }
     #overlay h1 { margin:0 0 8px; font-size:28px; }
     #overlay p { margin:8px 0 16px; line-height:1.5 }
     #overlay button { background:#2b2bff; border:0; color:white; padding:10px 16px; border-radius:10px; cursor:pointer; font-weight:600; }
     #overlay button.secondary { background:#1b1b25; border:1px solid #2b2b38; margin-left:8px; }
-    #alert { position: fixed; right:12px; bottom:12px; background:#3a0d0d; color:#ffb3b3; padding:8px 12px; border:1px solid #5c1717; border-radius:10px; display:none; font-weight:700; }
+    #alert { position: fixed; right:12px; bottom:12px; background:#3a0d0d; color:#ffb3b3; padding:8px 12px; border:1px solid #5c1717; border-radius:10px; display:none; font-weight:700; z-index: 15; }
   </style>
 </head>
 <body>
   <div id="ui">
-    <div class="pill">WASD / Arrows: Move</div>
-    <div class="pill">Shift: Sprint</div>
+    <div class="pill">WASD/Arrows: Move</div>
+    <div class="pill">Shift: Sprint (noise!)</div>
     <div class="pill">F: Flashlight</div>
-    <div class="pill">E: Interact / Hide</div>
-    <div class="pill right">Keys: <span id="keys">0</span>/3 · Stamina: <span id="stamina">100</span>% · Hidden: <span id="hidden">No</span></div>
+    <div class="pill">E: Interact/Hide/Hack</div>
+    <div class="pill right inv">Keys: <span id="keys">0</span>/4 · Stamina: <span id="stamina">100</span>% · Hidden: <span id="hidden">No</span> · Cams: <span id="cams">Online</span></div>
   </div>
   <canvas id="game" width="960" height="576"></canvas>
   <div id="overlay">
     <div class="card">
-      <h1 id="title">Westpine Night</h1>
-      <p id="message">Avoid Mr. Johnson, collect 3 keys, and reach the exit. Flashlight helps you see but also makes you visible. Duck into <b>lockers</b> (blue) with <b>E</b>. Cameras sweep the halls; if they see you, they ping Mr. Johnson.
-      </p>
+      <h1 id="title">Westpine Night 2.0</h1>
+      <p id="message">New: bigger scrolling map, flickering lights, camera terminals, inventory HUD, enterable classrooms, hearing & fake-outs, and the **Principal's Office** as the true exit.<br/>Collect <b>4 keys</b>, avoid Mr. Johnson, hide in <b>lockers</b>, hack <b>camera terminals</b>, and get to the Principal's Office door.</p>
       <div>
         <button id="play">Play</button>
         <button id="retry" class="secondary" style="display:none">Retry</button>
@@ -42,7 +42,7 @@
   <div id="alert">ALERT: Camera spotted you!</div>
 
   <script>
-  // --- Westpine Night: stealth prototype (single file, no assets) ---
+  // --- Westpine Night 2.0: scrolling-map stealth prototype (single file, no assets) ---
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
@@ -50,6 +50,7 @@
   const uiKeys = document.getElementById('keys');
   const uiStam = document.getElementById('stamina');
   const uiHidden = document.getElementById('hidden');
+  const uiCams = document.getElementById('cams');
   const overlay = document.getElementById('overlay');
   const titleEl = document.getElementById('title');
   const msgEl = document.getElementById('message');
@@ -58,33 +59,42 @@
   const alertEl = document.getElementById('alert');
 
   const TILE = 32; // pixels per tile
-  const COLS = Math.floor(W / TILE);
-  const ROWS = Math.floor(H / TILE);
 
-  // Map legend: 1=wall, 0=floor, 2=spawn, 3=exit, 4=key, 5=locker
+  // Map legend: 1=wall, 0=floor, 2=spawn, 4=key, 5=locker, 6=camera terminal, 7=principal office door
+  // Scrolling world (40x24) — enterable classrooms are 0-tiles off hallways
   const MAP = [
-    // 30x18 grid (960x576 / 32)
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    [1,2,0,0,0,0,0,0,1,0,5,5,0,4,0,0,0,0,1,0,0,0,0,0,0,0,0,0,3,1],
-    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,1,1,0,0,0,1,1,0,0,1],
-    [1,0,0,1,1,0,4,0,0,0,1,1,0,0,5,1,1,0,0,0,1,1,0,1,0,0,1,0,0,1],
-    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,5,0,1,0,0,1,0,0,1],
-    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,1,1,0,1,0,0,1,1,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,1],
-    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,1,1,0,1,0,0,1,1,0,1],
-    [1,0,5,0,0,0,0,0,1,0,0,0,0,5,0,0,0,0,1,0,0,0,0,1,0,0,1,0,0,1],
-    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,1,1,0,1,0,0,1,0,0,1],
-    [1,0,0,1,1,0,0,0,0,0,1,1,0,0,0,1,1,0,0,0,1,1,0,1,0,0,1,0,0,1],
-    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,5,1],
-    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,1,1,0,1,0,1,1,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,1,1,0,1,0,0,1,0,0,1],
-    [1,0,4,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,1,1,0,1,0,0,1,0,0,1],
-    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,5,0,0,0,0,0,0,1],
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    // 0           5         10         15         20         25         30         35         40
+    //            |          |          |          |          |          |          |          |
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,2,0,0,0,0,0,0,1,0,5,5,0,0,0,0,1,0,0,0,0,1,0,0,0,4,0,0,0,0,1,0,0,0,0,0,6,0,0,1],
+    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,1,0,1,1,0,1,0,1,0,0,0,1,1,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,1,1,0,5,0,0,0,1,1,0,0,5,0,1,0,0,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,5,0,1,0,1,0,0,1,0,0,0,1,0,0,0,0,5,1,0,0,1],
+    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,0,1,1,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,4,0,1],
+    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,0,1,1,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,5,0,0,0,0,0,1,0,0,0,0,5,0,0,0,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,0,0,0,6,1,0,0,1],
+    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,1,1,0,0,0,0,0,1,1,0,0,0,1,1,0,0,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,5,1,0,0,1],
+    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,1,1,0,0,0,1,0,1,1,0,0,1,0,7,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1],
+    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,4,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,5,1,0,0,1],
+    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,1,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1],
+    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,0,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,5,1,0,0,1],
+    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,1,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
   ];
 
-  const keysToCollect = 3;
+  const ROWS = MAP.length;
+  const COLS = MAP[0].length;
+
+  const keysToCollect = 4;
 
   function findTile(n){
     for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===n) return {x:c*TILE+TILE/2, y:r*TILE+TILE/2};
@@ -92,43 +102,62 @@
   }
 
   const spawn = findTile(2);
-  const exitPos = findTile(3);
+  // Principal's Office door tile (7) is the true exit
+  function findAllTiles(n){ const arr=[]; for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===n) arr.push({x:c*TILE+TILE/2, y:r*TILE+TILE/2, r, c}); return arr; }
+  const officeDoor = findAllTiles(7)[0];
 
   // Entities
   const player = { x: spawn.x, y: spawn.y, r: 12, speed: 2.1, sprint: 3.3, vx:0, vy:0, stamina: 100, flashlight:false, facing:0, hidden:false };
-  const enemy = { x: exitPos.x-200, y: exitPos.y, r:14, speed:1.8, fov: Math.PI/4.5, range: 230, alert:false, target:null, patrol:[], patrolIndex:0, cooldown:0 };
+  const enemy = { x: spawn.x+200, y: spawn.y+40, r:14, speed:1.85, fov: Math.PI/4.5, baseRange: 260, alert:false, target:null, patrol:[], patrolIndex:0, cooldown:0, fakeoutTimer:0 };
 
-  // Patrol waypoints
+  // Camera scroll
+  const cam = { x: 0, y: 0 };
+
+  // Build patrol waypoints roughly around main halls
   enemy.patrol = [
-    {x: TILE*8,  y: TILE*2},
-    {x: TILE*8,  y: TILE*14},
-    {x: TILE*22, y: TILE*14},
-    {x: TILE*22, y: TILE*2},
+    {x: TILE*8,  y: TILE*3},
+    {x: TILE*8,  y: TILE*16},
+    {x: TILE*22, y: TILE*16},
+    {x: TILE*34, y: TILE*16},
+    {x: TILE*34, y: TILE*4},
+    {x: TILE*22, y: TILE*4},
   ];
 
   // Keys spawn (tile==4)
   let keys = [];
   for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===4) keys.push({x:c*TILE+TILE/2, y:r*TILE+TILE/2, taken:false});
 
-  // Locker positions (tile==5)
+  // Lockers (tile==5)
   let lockers = [];
   for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===5) lockers.push({x:c*TILE+TILE/2, y:r*TILE+TILE/2});
 
-  // Cameras: manual placements for now
+  // Terminals (tile==6)
+  let terminals = [];
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===6) terminals.push({x:c*TILE+TILE/2, y:r*TILE+TILE/2});
+
+  // Cameras
   const cameras = [
-    // near admin
-    {x:TILE*9.5, y:TILE*2.5, range:220, fov:Math.PI/5, angle:0, min:-Math.PI/3, max:Math.PI/3, dir:1, speed:0.01, cooldown:0},
-    // south hall
-    {x:TILE*22.5, y:TILE*12.5, range:220, fov:Math.PI/5, angle:Math.PI, min:Math.PI-0.9, max:Math.PI+0.9, dir:1, speed:0.012, cooldown:0},
-    // north east
-    {x:TILE*26.5, y:TILE*3.5, range:200, fov:Math.PI/6, angle:Math.PI/2, min:Math.PI/2-0.7, max:Math.PI/2+0.7, dir:1, speed:0.009, cooldown:0},
+    {x:TILE*10.5, y:TILE*2.5, range:240, fov:Math.PI/5, angle:0, min:-Math.PI/3, max:Math.PI/3, dir:1, speed:0.01, cooldown:0},
+    {x:TILE*22.5, y:TILE*12.5, range:260, fov:Math.PI/5, angle:Math.PI, min:Math.PI-0.9, max:Math.PI+0.9, dir:1, speed:0.012, cooldown:0},
+    {x:TILE*35.5, y:TILE*4.5,  range:220, fov:Math.PI/6, angle:Math.PI/2, min:Math.PI/2-0.7, max:Math.PI/2+0.7, dir:1, speed:0.009, cooldown:0},
+    {x:TILE*16.5, y:TILE*8.5,  range:220, fov:Math.PI/6, angle:-Math.PI/2, min:-Math.PI/2-0.7, max:-Math.PI/2+0.7, dir:1, speed:0.011, cooldown:0},
   ];
 
+  // Systems
   let heldKeys = 0;
   let running = false;
   let gameOver = false;
   let won = false;
   let camAlertTimer = 0;
+  let camerasDisabledTimer = 0; // when >0, cameras ignore you
+
+  // Lighting
+  let lightLevel = 1; // 1 = normal, <1 = darker
+  let flickerTimer = 0; // small flickers
+  let blackoutTimer = 0; // full darkness moments
+
+  // Hearing
+  const HEAR_RANGE = 280; // Johnson hears sprinting within this range
 
   const input = { up:false, down:false, left:false, right:false, sprint:false, interact:false };
   onkeydown = e => {
@@ -182,7 +211,8 @@
   }
 
   function canSeeEnemy(){
-    const baseRange = enemy.range * (player.flashlight ? 1.25 : 1.0);
+    const ambient = blackoutTimer>0 ? 0.6 : (0.8 + 0.2*lightLevel); // darker -> less range
+    const baseRange = enemy.baseRange * ambient * (player.flashlight ? 1.15 : 1.0);
     const facing = enemyFacing(enemy);
     return canSeeCone(enemy, player, facing, enemy.fov, baseRange);
   }
@@ -194,35 +224,29 @@
     return angle(e,next);
   }
 
-  function nearLocker(){
-    const t = tileAt(player.x, player.y);
-    if(t===5) return true;
-    // also allow near any locker tile within small radius
-    for(const L of lockers){ if(dist(player,L)<24) return true; }
-    return false;
-  }
+  function nearThing(list, radius=24){ for(const p of list){ if(dist(player,p)<radius) return p; } return null; }
+  function nearLocker(){ return nearThing(lockers, 26); }
+  function nearTerminal(){ return nearThing(terminals, 28); }
+  function nearOfficeDoor(){ return dist(player, officeDoor)<28; }
 
   function tryInteract(){
-    if(player.hidden){
-      // exit locker
-      player.hidden = false; player.flashlight=false; // keep off by default
-      uiHidden.textContent = 'No';
-      return;
-    }
-    if(nearLocker()){
-      player.hidden = true; player.vx = player.vy = 0; player.flashlight=false;
-      uiHidden.textContent = 'Yes';
-      return;
-    }
-    // exit door
-    if(heldKeys>=keysToCollect && dist(player, exitPos)<28){ won=true; endGame(); }
+    if(player.hidden){ player.hidden=false; player.flashlight=false; uiHidden.textContent='No'; return; }
+    const term = nearTerminal();
+    if(term){ camerasDisabledTimer = 60*30; // 30s
+      uiCams.textContent = 'Offline';
+      return; }
+    const locker = nearLocker();
+    if(locker){ player.hidden=true; player.vx=player.vy=0; player.flashlight=false; uiHidden.textContent='Yes'; return; }
+    if(heldKeys>=keysToCollect && nearOfficeDoor()){ won=true; endGame(); return; }
   }
 
   function reset(){
     player.x = spawn.x; player.y = spawn.y; player.stamina=100; player.flashlight=false; player.hidden=false; heldKeys=0;
     keys.forEach(k=>k.taken=false);
-    enemy.x = exitPos.x-200; enemy.y = exitPos.y; enemy.alert=false; enemy.target=null; enemy.patrolIndex=0; enemy.cooldown=0;
+    enemy.x = spawn.x+200; enemy.y = spawn.y+40; enemy.alert=false; enemy.target=null; enemy.patrolIndex=0; enemy.cooldown=0; enemy.fakeoutTimer=0;
     camAlertTimer = 0; alertEl.style.display='none';
+    camerasDisabledTimer = 0; uiCams.textContent='Online';
+    lightLevel = 1; flickerTimer=0; blackoutTimer=0;
     running = true; gameOver=false; won=false;
     overlay.style.display='none';
     retryBtn.style.display='none';
@@ -235,10 +259,21 @@
   overlay.style.display='flex';
 
   function update(){
-    // ALWAYS schedule next frame so the loop resumes after pressing Play
+    // ALWAYS schedule next frame so the loop keeps running
     requestAnimationFrame(update);
 
+    // Camera follow
+    cam.x = clamp(player.x - W/2, 0, COLS*TILE - W);
+    cam.y = clamp(player.y - H/2, 0, ROWS*TILE - H);
+
     if(!running){ draw(); return; }
+
+    // --- Lighting effects ---
+    if(blackoutTimer>0){ blackoutTimer--; lightLevel = 0.25; }
+    else {
+      if(flickerTimer>0){ flickerTimer--; lightLevel = 0.7 + Math.random()*0.2; }
+      else { lightLevel = 1; if(Math.random()<0.003) flickerTimer = 40; if(Math.random()<0.0008) blackoutTimer = 180; }
+    }
 
     // --- Input & Interaction ---
     if(input.interact){ tryInteract(); input.interact=false; }
@@ -250,11 +285,18 @@
       player.vy = (input.down - input.up) * spd;
       if(player.vx && player.vy){ player.vx *= 0.7071; player.vy *= 0.7071; }
       // stamina drain/regain
-      if(input.sprint && (player.vx||player.vy)) player.stamina = Math.max(0, player.stamina - 0.25);
+      const moving = (player.vx||player.vy);
+      if(input.sprint && moving) player.stamina = Math.max(0, player.stamina - 0.25);
       else player.stamina = Math.min(100, player.stamina + 0.15);
       collideCircleWalls(player);
       player.x += player.vx; player.y += player.vy;
-      if(player.vx||player.vy) player.facing = Math.atan2(player.vy, player.vx);
+      if(moving) player.facing = Math.atan2(player.vy, player.vx);
+
+      // noise from sprinting
+      if(input.sprint && moving){
+        const d = dist(player, enemy);
+        if(d < HEAR_RANGE){ enemy.alert = true; enemy.target = {x:player.x, y:player.y}; enemy.cooldown = 180; }
+      }
     } else {
       // hidden: recover stamina faster
       player.stamina = Math.min(100, player.stamina + 0.4);
@@ -264,42 +306,66 @@
     for(const k of keys){ if(!k.taken && dist(player,k)<18){ k.taken=true; heldKeys++; } }
 
     // --- Cameras ---
-    for(const cam of cameras){
+    if(camerasDisabledTimer>0){ camerasDisabledTimer--; if(camerasDisabledTimer===0) uiCams.textContent='Online'; }
+    for(const camObj of cameras){
       // sweep
-      cam.angle += cam.speed * cam.dir;
-      if(cam.angle>cam.max){ cam.angle=cam.max; cam.dir*=-1; }
-      if(cam.angle<cam.min){ cam.angle=cam.min; cam.dir*=-1; }
+      camObj.angle += camObj.speed * camObj.dir;
+      if(camObj.angle>camObj.max){ camObj.angle=camObj.max; camObj.dir*=-1; }
+      if(camObj.angle<camObj.min){ camObj.angle=camObj.min; camObj.dir*=-1; }
 
       if(player.hidden) continue;
-      if(canSeeCone(cam, player, cam.angle, cam.fov, cam.range)){
-        cam.cooldown = 180; // 3s memory
+      if(camerasDisabledTimer>0) continue;
+      if(canSeeCone(camObj, player, camObj.angle, camObj.fov, camObj.range)){
+        camObj.cooldown = 180; // 3s memory
         camAlertTimer = 60; // show UI alert
         alertEl.style.display='block';
-        // ping enemy to investigate current player pos
+        // ping enemy to investigate
         enemy.alert = true;
         enemy.target = {x: player.x, y: player.y};
         enemy.cooldown = 300;
-      } else if(cam.cooldown>0){ cam.cooldown--; }
+      } else if(camObj.cooldown>0){ camObj.cooldown--; }
     }
     if(camAlertTimer>0){ camAlertTimer--; if(camAlertTimer===0) alertEl.style.display='none'; }
 
     // --- Enemy AI ---
     const seen = !player.hidden && canSeeEnemy();
 
-    if(seen){ enemy.alert = true; enemy.target = {x:player.x, y:player.y}; enemy.cooldown = 240; }
+    // trailing fake-out: if player hangs near behind enemy
+    if(!enemy.alert && !player.hidden){
+      const toPlayer = angle(enemy, player);
+      const face = enemyFacing(enemy);
+      const behind = Math.abs(normalizeAngle(toPlayer - face)) > Math.PI*0.7; // roughly behind
+      if(behind && dist(player, enemy) < 140){ if(enemy.fakeoutTimer<=0) enemy.fakeoutTimer = 60; }
+    }
+
+    if(seen){ enemy.alert = true; enemy.target = {x:player.x, y:player.y}; enemy.cooldown = 240; enemy.fakeoutTimer = 0; }
     else { if(enemy.cooldown>0) enemy.cooldown--; else enemy.alert=false; }
 
     if(enemy.alert){
       const ang = angle(enemy, enemy.target);
-      enemy.x += Math.cos(ang) * (enemy.speed+0.35);
-      enemy.y += Math.sin(ang) * (enemy.speed+0.35);
+      const spd = enemy.speed + 0.4;
+      enemy.x += Math.cos(ang) * spd;
+      enemy.y += Math.sin(ang) * spd;
       if(dist(enemy, enemy.target)<12) enemy.alert=false;
     } else {
-      const wp = enemy.patrol[enemy.patrolIndex % enemy.patrol.length];
-      const ang = angle(enemy, wp);
-      enemy.x += Math.cos(ang) * enemy.speed;
-      enemy.y += Math.sin(ang) * enemy.speed;
-      if(dist(enemy, wp)<12) enemy.patrolIndex = (enemy.patrolIndex+1) % enemy.patrol.length;
+      // fake-out burst toward previous waypoint
+      if(enemy.fakeoutTimer>0){
+        enemy.fakeoutTimer--;
+        const prevIndex = (enemy.patrolIndex - 1 + enemy.patrol.length) % enemy.patrol.length;
+        const wp = enemy.patrol[prevIndex];
+        const ang = angle(enemy, wp);
+        enemy.x += Math.cos(ang) * (enemy.speed + 0.8);
+        enemy.y += Math.sin(ang) * (enemy.speed + 0.8);
+        if(dist(enemy, wp)<14 || enemy.fakeoutTimer===0) enemy.patrolIndex = prevIndex;
+      } else {
+        const wp = enemy.patrol[enemy.patrolIndex % enemy.patrol.length];
+        const ang = angle(enemy, wp);
+        enemy.x += Math.cos(ang) * enemy.speed;
+        enemy.y += Math.sin(ang) * enemy.speed;
+        if(dist(enemy, wp)<12) enemy.patrolIndex = (enemy.patrolIndex+1) % enemy.patrol.length;
+        // occasional random turn-about
+        if(Math.random()<0.0015){ enemy.fakeoutTimer = 50; }
+      }
     }
 
     // collision
@@ -313,6 +379,7 @@
     uiKeys.textContent = `${heldKeys}`;
     uiStam.textContent = `${Math.round(player.stamina)}`;
     uiHidden.textContent = player.hidden ? 'Yes' : 'No';
+    if(camerasDisabledTimer>0) uiCams.textContent = `Offline ${Math.ceil(camerasDisabledTimer/60)}s`;
 
     draw();
   }
@@ -322,22 +389,30 @@
     overlay.style.display='flex';
     retryBtn.style.display='inline-block';
     playBtn.style.display='none';
-    titleEl.textContent = won ? 'You Escaped Westpine' : 'Caught by Mr. Johnson';
+    titleEl.textContent = won ? "You Escaped the Principal's Office" : 'Caught by Mr. Johnson';
     msgEl.textContent = won
-      ? 'Gate creaks open. You step into the night. Transfer request: submitted.'
-      : 'Detention… forever. Tip: hide in lockers (E), watch camera sweeps, and sprint in bursts.';
+      ? 'Door unlocks. You step into the night. Westpine remains… hungry.'
+      : 'Detention… forever. Tips: hide in lockers (E), hack terminals, respect camera sweeps, sprint in bursts, and watch for fake-outs.';
   }
 
   function draw(){
-    // darkness base
+    // clear
     ctx.fillStyle = '#07070b';
     ctx.fillRect(0,0,W,H);
 
-    // map floors/walls
-    for(let r=0;r<ROWS;r++){
-      for(let c=0;c<COLS;c++){
+    // darkness overlay based on light level
+    const dark = clamp(0.55 + (1-lightLevel)*0.6, 0, 0.95);
+
+    // visible tiles only
+    const c0 = Math.max(0, Math.floor(cam.x / TILE) - 1);
+    const r0 = Math.max(0, Math.floor(cam.y / TILE) - 1);
+    const c1 = Math.min(COLS-1, Math.ceil((cam.x+W) / TILE) + 1);
+    const r1 = Math.min(ROWS-1, Math.ceil((cam.y+H) / TILE) + 1);
+
+    for(let r=r0;r<=r1;r++){
+      for(let c=c0;c<=c1;c++){
         const t = MAP[r][c];
-        const x=c*TILE, y=r*TILE;
+        const x=c*TILE - cam.x, y=r*TILE - cam.y;
         if(t===1){
           ctx.fillStyle = '#161622';
           ctx.fillRect(x,y,TILE,TILE);
@@ -353,89 +428,101 @@
           ctx.fillStyle = '#8bb5ff';
           ctx.fillRect(x+TILE-10,y+TILE/2-3,6,6); // handle
         }
+        if(t===6){ // terminals
+          ctx.fillStyle = camerasDisabledTimer>0 ? '#2a823a' : '#4062b2';
+          ctx.fillRect(x+6,y+6,TILE-12,TILE-12);
+          ctx.fillStyle = '#0b0b10'; ctx.fillRect(x+10,y+10,TILE-20,TILE-20);
+        }
+        if(t===7){ // principal door
+          ctx.fillStyle = heldKeys>=keysToCollect ? '#3fa370' : '#704040';
+          ctx.fillRect(x+2,y+2,TILE-4,TILE-4);
+        }
       }
     }
 
-    // exit
-    ctx.fillStyle = '#3fa370';
-    ctx.fillRect(exitPos.x-10, exitPos.y-10, 20, 20);
+    // exit door highlight text could be added here
 
     // keys
-    for(const k of keys){ if(k.taken) continue; ctx.fillStyle='#e8c547'; ctx.beginPath(); ctx.arc(k.x,k.y,6,0,Math.PI*2); ctx.fill(); }
+    for(const k of keys){ if(k.taken) continue; const sx=k.x - cam.x, sy=k.y - cam.y; if(sx<-20||sy<-20||sx>W+20||sy>H+20) continue; ctx.fillStyle='#e8c547'; ctx.beginPath(); ctx.arc(sx,sy,6,0,Math.PI*2); ctx.fill(); }
 
-    // cameras fov
-    for(const cam of cameras){
+    // cameras fov & bodies
+    for(const camObj of cameras){
+      const sx=camObj.x - cam.x, sy=camObj.y - cam.y;
       // beam
-      ctx.save();
-      ctx.fillStyle = 'rgba(80,140,255,0.08)';
-      drawCone(cam.x, cam.y, cam.angle, cam.fov, cam.range);
-      ctx.restore();
+      if(camerasDisabledTimer<=0){
+        ctx.save();
+        ctx.fillStyle = 'rgba(80,140,255,0.08)';
+        drawCone(sx, sy, camObj.angle, camObj.fov, camObj.range);
+        ctx.restore();
+      }
       // camera body
-      ctx.fillStyle = '#4a73c2';
+      ctx.fillStyle = camerasDisabledTimer>0 ? '#2a823a' : '#4a73c2';
       ctx.beginPath();
-      ctx.moveTo(cam.x+Math.cos(cam.angle)*10, cam.y+Math.sin(cam.angle)*10);
-      ctx.lineTo(cam.x+Math.cos(cam.angle+0.8)*10, cam.y+Math.sin(cam.angle+0.8)*10);
-      ctx.lineTo(cam.x+Math.cos(cam.angle-0.8)*10, cam.y+Math.sin(cam.angle-0.8)*10);
+      ctx.moveTo(sx+Math.cos(camObj.angle)*10, sy+Math.sin(camObj.angle)*10);
+      ctx.lineTo(sx+Math.cos(camObj.angle+0.8)*10, sy+Math.sin(camObj.angle+0.8)*10);
+      ctx.lineTo(sx+Math.cos(camObj.angle-0.8)*10, sy+Math.sin(camObj.angle-0.8)*10);
       ctx.closePath();
       ctx.fill();
-      if(cam.cooldown>0){ // red LED while alarmed
+      if(camObj.cooldown>0 && camerasDisabledTimer<=0){ // red LED while alarmed
         ctx.fillStyle = '#ff5d5d';
-        ctx.beginPath(); ctx.arc(cam.x, cam.y, 3, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI*2); ctx.fill();
       }
     }
 
     // enemy FOV
-    drawFOV(enemy, enemy.range, enemy.fov, 'rgba(255,80,80,0.08)');
+    const face = enemyFacing(enemy);
+    const ambient = blackoutTimer>0 ? 0.6 : (0.8 + 0.2*lightLevel);
+    const eRange = enemy.baseRange * ambient;
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,80,80,0.08)';
+    drawCone(enemy.x - cam.x, enemy.y - cam.y, face, enemy.fov, eRange);
+    ctx.restore();
 
-    // player flashlight (mask)
+    // player flashlight
     if(player.flashlight && !player.hidden){
       const coneAngle = player.facing;
       const coneWidth = Math.PI/5;
-      const coneRange = 220;
+      const coneRange = 240;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle='rgba(180,180,200,0.12)';
-      drawCone(player.x, player.y, coneAngle, coneWidth, coneRange);
+      drawCone(player.x - cam.x, player.y - cam.y, coneAngle, coneWidth, coneRange);
       ctx.restore();
     }
+
+    // apply darkness overlay
+    ctx.fillStyle = `rgba(0,0,0,${dark})`;
+    ctx.fillRect(0,0,W,H);
 
     // entities
     // player
     if(!player.hidden){
       ctx.fillStyle = '#8bb5ff';
-      ctx.beginPath(); ctx.arc(player.x, player.y, player.r, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(player.x - cam.x, player.y - cam.y, player.r, 0, Math.PI*2); ctx.fill();
     }
 
     // Mr. Johnson — stylized black, bald, beard + mustache
     // head
     ctx.fillStyle = '#4b3424'; // deep brown skin tone
-    ctx.beginPath(); ctx.arc(enemy.x, enemy.y, enemy.r+1, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(enemy.x - cam.x, enemy.y - cam.y, enemy.r+1, 0, Math.PI*2); ctx.fill();
     // beard (lower semi-circle)
     ctx.fillStyle = '#141414';
     ctx.beginPath();
-    ctx.arc(enemy.x, enemy.y+2, enemy.r-2, Math.PI*0.15, Math.PI-0.15);
-    ctx.lineTo(enemy.x, enemy.y+3);
+    ctx.arc(enemy.x - cam.x, enemy.y - cam.y + 2, enemy.r-2, Math.PI*0.15, Math.PI-0.15);
+    ctx.lineTo(enemy.x - cam.x, enemy.y - cam.y + 3);
     ctx.closePath(); ctx.fill();
     // mustache (thin arc)
     ctx.strokeStyle = '#0d0d0d';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(enemy.x, enemy.y+1, enemy.r-6, Math.PI*0.05, Math.PI-0.05);
+    ctx.arc(enemy.x - cam.x, enemy.y - cam.y + 1, enemy.r-6, Math.PI*0.05, Math.PI-0.05);
     ctx.stroke();
 
     // alert marker
     if(enemy.alert){
       ctx.fillStyle = '#ff5d5d';
-      ctx.beginPath(); ctx.arc(enemy.x, enemy.y - enemy.r - 10, 4, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(enemy.x - cam.x, enemy.y - cam.y - enemy.r - 10, 4, 0, Math.PI*2); ctx.fill();
     }
-  }
-
-  function drawFOV(entity, range, fov, style){
-    ctx.save();
-    ctx.fillStyle = style;
-    const face = enemyFacing(entity);
-    drawCone(entity.x, entity.y, face, fov, range);
-    ctx.restore();
   }
 
   function drawCone(x,y,angleCenter, angleWidth, radius){
