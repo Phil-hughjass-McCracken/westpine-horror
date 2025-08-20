@@ -1,0 +1,453 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Westpine Night — Prototype</title>
+  <style>
+    html, body { height: 100%; margin: 0; background:#0a0a0f; color:#e6e6f0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; }
+    #ui { position: fixed; inset: 0 0 auto 0; display:flex; gap:12px; align-items:center; padding:10px 14px; background: linear-gradient(180deg, rgba(10,10,15,.9), rgba(10,10,15,.25)); backdrop-filter: blur(4px); }
+    #ui .pill { padding:4px 10px; border-radius:14px; background:#1b1b25; border:1px solid #2b2b38; box-shadow: inset 0 0 0 1px rgba(255,255,255,.03); font-size: 14px; }
+    #ui .right { margin-left:auto; opacity:.95 }
+    #game { display:block; margin:0 auto; image-rendering: pixelated; }
+    #overlay { position: fixed; inset:0; display:none; align-items:center; justify-content:center; background: rgba(0,0,0,.8); }
+    #overlay .card { background:#121219; border:1px solid #2b2b38; border-radius:16px; padding:20px; width:min(620px, 92vw); text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,.6); }
+    #overlay h1 { margin:0 0 8px; font-size:28px; }
+    #overlay p { margin:8px 0 16px; line-height:1.5 }
+    #overlay button { background:#2b2bff; border:0; color:white; padding:10px 16px; border-radius:10px; cursor:pointer; font-weight:600; }
+    #overlay button.secondary { background:#1b1b25; border:1px solid #2b2b38; margin-left:8px; }
+    #alert { position: fixed; right:12px; bottom:12px; background:#3a0d0d; color:#ffb3b3; padding:8px 12px; border:1px solid #5c1717; border-radius:10px; display:none; font-weight:700; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <div class="pill">WASD / Arrows: Move</div>
+    <div class="pill">Shift: Sprint</div>
+    <div class="pill">F: Flashlight</div>
+    <div class="pill">E: Interact / Hide</div>
+    <div class="pill right">Keys: <span id="keys">0</span>/3 · Stamina: <span id="stamina">100</span>% · Hidden: <span id="hidden">No</span></div>
+  </div>
+  <canvas id="game" width="960" height="576"></canvas>
+  <div id="overlay">
+    <div class="card">
+      <h1 id="title">Westpine Night</h1>
+      <p id="message">Avoid Mr. Johnson, collect 3 keys, and reach the exit. Flashlight helps you see but also makes you visible. Duck into <b>lockers</b> (blue) with <b>E</b>. Cameras sweep the halls; if they see you, they ping Mr. Johnson.
+      </p>
+      <div>
+        <button id="play">Play</button>
+        <button id="retry" class="secondary" style="display:none">Retry</button>
+      </div>
+    </div>
+  </div>
+  <div id="alert">ALERT: Camera spotted you!</div>
+
+  <script>
+  // --- Westpine Night: stealth prototype (single file, no assets) ---
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  const uiKeys = document.getElementById('keys');
+  const uiStam = document.getElementById('stamina');
+  const uiHidden = document.getElementById('hidden');
+  const overlay = document.getElementById('overlay');
+  const titleEl = document.getElementById('title');
+  const msgEl = document.getElementById('message');
+  const playBtn = document.getElementById('play');
+  const retryBtn = document.getElementById('retry');
+  const alertEl = document.getElementById('alert');
+
+  const TILE = 32; // pixels per tile
+  const COLS = Math.floor(W / TILE);
+  const ROWS = Math.floor(H / TILE);
+
+  // Map legend: 1=wall, 0=floor, 2=spawn, 3=exit, 4=key, 5=locker
+  const MAP = [
+    // 30x18 grid (960x576 / 32)
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,2,0,0,0,0,0,0,1,0,5,5,0,4,0,0,0,0,1,0,0,0,0,0,0,0,0,0,3,1],
+    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,1,1,0,0,0,1,1,0,0,1],
+    [1,0,0,1,1,0,4,0,0,0,1,1,0,0,5,1,1,0,0,0,1,1,0,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,5,0,1,0,0,1,0,0,1],
+    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,1,1,0,1,0,0,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,1],
+    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,1,1,0,1,0,0,1,1,0,1],
+    [1,0,5,0,0,0,0,0,1,0,0,0,0,5,0,0,0,0,1,0,0,0,0,1,0,0,1,0,0,1],
+    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,1,1,0,1,0,0,1,0,0,1],
+    [1,0,0,1,1,0,0,0,0,0,1,1,0,0,0,1,1,0,0,0,1,1,0,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,5,1],
+    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,1,1,0,1,0,1,1,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,1,1,0,1,0,0,1,0,0,1],
+    [1,0,4,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,1,1,0,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,5,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  ];
+
+  const keysToCollect = 3;
+
+  function findTile(n){
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===n) return {x:c*TILE+TILE/2, y:r*TILE+TILE/2};
+    return {x:TILE*2, y:TILE*2};
+  }
+
+  const spawn = findTile(2);
+  const exitPos = findTile(3);
+
+  // Entities
+  const player = { x: spawn.x, y: spawn.y, r: 12, speed: 2.1, sprint: 3.3, vx:0, vy:0, stamina: 100, flashlight:false, facing:0, hidden:false };
+  const enemy = { x: exitPos.x-200, y: exitPos.y, r:14, speed:1.8, fov: Math.PI/4.5, range: 230, alert:false, target:null, patrol:[], patrolIndex:0, cooldown:0 };
+
+  // Patrol waypoints
+  enemy.patrol = [
+    {x: TILE*8,  y: TILE*2},
+    {x: TILE*8,  y: TILE*14},
+    {x: TILE*22, y: TILE*14},
+    {x: TILE*22, y: TILE*2},
+  ];
+
+  // Keys spawn (tile==4)
+  let keys = [];
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===4) keys.push({x:c*TILE+TILE/2, y:r*TILE+TILE/2, taken:false});
+
+  // Locker positions (tile==5)
+  let lockers = [];
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===5) lockers.push({x:c*TILE+TILE/2, y:r*TILE+TILE/2});
+
+  // Cameras: manual placements for now
+  const cameras = [
+    // near admin
+    {x:TILE*9.5, y:TILE*2.5, range:220, fov:Math.PI/5, angle:0, min:-Math.PI/3, max:Math.PI/3, dir:1, speed:0.01, cooldown:0},
+    // south hall
+    {x:TILE*22.5, y:TILE*12.5, range:220, fov:Math.PI/5, angle:Math.PI, min:Math.PI-0.9, max:Math.PI+0.9, dir:1, speed:0.012, cooldown:0},
+    // north east
+    {x:TILE*26.5, y:TILE*3.5, range:200, fov:Math.PI/6, angle:Math.PI/2, min:Math.PI/2-0.7, max:Math.PI/2+0.7, dir:1, speed:0.009, cooldown:0},
+  ];
+
+  let heldKeys = 0;
+  let running = false;
+  let gameOver = false;
+  let won = false;
+  let camAlertTimer = 0;
+
+  const input = { up:false, down:false, left:false, right:false, sprint:false, interact:false };
+  onkeydown = e => {
+    if(e.key==='ArrowUp'||e.key==='w') input.up=true;
+    if(e.key==='ArrowDown'||e.key==='s') input.down=true;
+    if(e.key==='ArrowLeft'||e.key==='a') input.left=true;
+    if(e.key==='ArrowRight'||e.key==='d') input.right=true;
+    if(e.key==='Shift') input.sprint=true;
+    if(e.key==='f' || e.key==='F') player.flashlight = !player.flashlight;
+    if(e.key==='e' || e.key==='E') input.interact = true;
+  }
+  onkeyup = e => {
+    if(e.key==='ArrowUp'||e.key==='w') input.up=false;
+    if(e.key==='ArrowDown'||e.key==='s') input.down=false;
+    if(e.key==='ArrowLeft'||e.key==='a') input.left=false;
+    if(e.key==='ArrowRight'||e.key==='d') input.right=false;
+    if(e.key==='Shift') input.sprint=false;
+    if(e.key==='e' || e.key==='E') input.interact = false;
+  }
+
+  function tileAt(x,y){
+    const c = Math.floor(x / TILE), r = Math.floor(y / TILE);
+    if(r<0||r>=ROWS||c<0||c>=COLS) return 1; // outside is wall
+    return MAP[r][c];
+  }
+
+  function collideCircleWalls(obj){
+    // stop at walls along axes
+    if(tileAt(obj.x+obj.vx+Math.sign(obj.vx)*obj.r, obj.y)===1) obj.vx = 0;
+    if(tileAt(obj.x, obj.y+obj.vy+Math.sign(obj.vy)*obj.r)===1) obj.vy = 0;
+    if(tileAt(obj.x+Math.sign(obj.vx)*obj.r, obj.y+Math.sign(obj.vy)*obj.r)===1){ obj.vx=0; obj.vy=0; }
+  }
+
+  function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.hypot(dx,dy); }
+  function angle(a,b){ return Math.atan2(b.y-a.y, b.x-a.x); }
+  function clamp(v,mi,ma){ return Math.max(mi, Math.min(ma, v)); }
+
+  function canSeeCone(from,to, angleCenter, fov, maxDist){
+    const ang = angle({x:from.x,y:from.y},to);
+    const withinCone = Math.abs(normalizeAngle(ang - angleCenter)) <= fov/2;
+    if(!withinCone) return false;
+    const d = dist(from, to); if(d>maxDist) return false;
+    // raycast
+    const steps = Math.ceil(d/6);
+    for(let i=1;i<=steps;i++){
+      const px = from.x + (to.x-from.x)*(i/steps);
+      const py = from.y + (to.y-from.y)*(i/steps);
+      if(tileAt(px,py)===1) return false;
+    }
+    return true;
+  }
+
+  function canSeeEnemy(){
+    const baseRange = enemy.range * (player.flashlight ? 1.25 : 1.0);
+    const facing = enemyFacing(enemy);
+    return canSeeCone(enemy, player, facing, enemy.fov, baseRange);
+  }
+
+  function normalizeAngle(a){ while(a>Math.PI) a-=2*Math.PI; while(a<-Math.PI) a+=2*Math.PI; return a; }
+  function enemyFacing(e){
+    if(e.target){ return angle(e, e.target); }
+    const next = e.patrol[(e.patrolIndex)%e.patrol.length];
+    return angle(e,next);
+  }
+
+  function nearLocker(){
+    const t = tileAt(player.x, player.y);
+    if(t===5) return true;
+    // also allow near any locker tile within small radius
+    for(const L of lockers){ if(dist(player,L)<24) return true; }
+    return false;
+  }
+
+  function tryInteract(){
+    if(player.hidden){
+      // exit locker
+      player.hidden = false; player.flashlight=false; // keep off by default
+      uiHidden.textContent = 'No';
+      return;
+    }
+    if(nearLocker()){
+      player.hidden = true; player.vx = player.vy = 0; player.flashlight=false;
+      uiHidden.textContent = 'Yes';
+      return;
+    }
+    // exit door
+    if(heldKeys>=keysToCollect && dist(player, exitPos)<28){ won=true; endGame(); }
+  }
+
+  function reset(){
+    player.x = spawn.x; player.y = spawn.y; player.stamina=100; player.flashlight=false; player.hidden=false; heldKeys=0;
+    keys.forEach(k=>k.taken=false);
+    enemy.x = exitPos.x-200; enemy.y = exitPos.y; enemy.alert=false; enemy.target=null; enemy.patrolIndex=0; enemy.cooldown=0;
+    camAlertTimer = 0; alertEl.style.display='none';
+    running = true; gameOver=false; won=false;
+    overlay.style.display='none';
+    retryBtn.style.display='none';
+  }
+
+  playBtn.onclick = () => { reset(); };
+  retryBtn.onclick = () => { reset(); };
+
+  // Start menu shown initially
+  overlay.style.display='flex';
+
+  function update(){
+    // ALWAYS schedule next frame so the loop resumes after pressing Play
+    requestAnimationFrame(update);
+
+    if(!running){ draw(); return; }
+
+    // --- Input & Interaction ---
+    if(input.interact){ tryInteract(); input.interact=false; }
+
+    // --- Player movement ---
+    if(!player.hidden){
+      const spd = (input.sprint && player.stamina>0) ? player.sprint : player.speed;
+      player.vx = (input.right - input.left) * spd;
+      player.vy = (input.down - input.up) * spd;
+      if(player.vx && player.vy){ player.vx *= 0.7071; player.vy *= 0.7071; }
+      // stamina drain/regain
+      if(input.sprint && (player.vx||player.vy)) player.stamina = Math.max(0, player.stamina - 0.25);
+      else player.stamina = Math.min(100, player.stamina + 0.15);
+      collideCircleWalls(player);
+      player.x += player.vx; player.y += player.vy;
+      if(player.vx||player.vy) player.facing = Math.atan2(player.vy, player.vx);
+    } else {
+      // hidden: recover stamina faster
+      player.stamina = Math.min(100, player.stamina + 0.4);
+    }
+
+    // collect keys
+    for(const k of keys){ if(!k.taken && dist(player,k)<18){ k.taken=true; heldKeys++; } }
+
+    // --- Cameras ---
+    for(const cam of cameras){
+      // sweep
+      cam.angle += cam.speed * cam.dir;
+      if(cam.angle>cam.max){ cam.angle=cam.max; cam.dir*=-1; }
+      if(cam.angle<cam.min){ cam.angle=cam.min; cam.dir*=-1; }
+
+      if(player.hidden) continue;
+      if(canSeeCone(cam, player, cam.angle, cam.fov, cam.range)){
+        cam.cooldown = 180; // 3s memory
+        camAlertTimer = 60; // show UI alert
+        alertEl.style.display='block';
+        // ping enemy to investigate current player pos
+        enemy.alert = true;
+        enemy.target = {x: player.x, y: player.y};
+        enemy.cooldown = 300;
+      } else if(cam.cooldown>0){ cam.cooldown--; }
+    }
+    if(camAlertTimer>0){ camAlertTimer--; if(camAlertTimer===0) alertEl.style.display='none'; }
+
+    // --- Enemy AI ---
+    const seen = !player.hidden && canSeeEnemy();
+
+    if(seen){ enemy.alert = true; enemy.target = {x:player.x, y:player.y}; enemy.cooldown = 240; }
+    else { if(enemy.cooldown>0) enemy.cooldown--; else enemy.alert=false; }
+
+    if(enemy.alert){
+      const ang = angle(enemy, enemy.target);
+      enemy.x += Math.cos(ang) * (enemy.speed+0.35);
+      enemy.y += Math.sin(ang) * (enemy.speed+0.35);
+      if(dist(enemy, enemy.target)<12) enemy.alert=false;
+    } else {
+      const wp = enemy.patrol[enemy.patrolIndex % enemy.patrol.length];
+      const ang = angle(enemy, wp);
+      enemy.x += Math.cos(ang) * enemy.speed;
+      enemy.y += Math.sin(ang) * enemy.speed;
+      if(dist(enemy, wp)<12) enemy.patrolIndex = (enemy.patrolIndex+1) % enemy.patrol.length;
+    }
+
+    // collision
+    enemy.vx = enemy.vy = 0;
+    collideCircleWalls(enemy);
+
+    // caught? (cannot be caught while hidden)
+    if(!player.hidden && dist(player, enemy) < 16){ gameOver = true; endGame(); }
+
+    // UI
+    uiKeys.textContent = `${heldKeys}`;
+    uiStam.textContent = `${Math.round(player.stamina)}`;
+    uiHidden.textContent = player.hidden ? 'Yes' : 'No';
+
+    draw();
+  }
+
+  function endGame(){
+    running=false;
+    overlay.style.display='flex';
+    retryBtn.style.display='inline-block';
+    playBtn.style.display='none';
+    titleEl.textContent = won ? 'You Escaped Westpine' : 'Caught by Mr. Johnson';
+    msgEl.textContent = won
+      ? 'Gate creaks open. You step into the night. Transfer request: submitted.'
+      : 'Detention… forever. Tip: hide in lockers (E), watch camera sweeps, and sprint in bursts.';
+  }
+
+  function draw(){
+    // darkness base
+    ctx.fillStyle = '#07070b';
+    ctx.fillRect(0,0,W,H);
+
+    // map floors/walls
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        const t = MAP[r][c];
+        const x=c*TILE, y=r*TILE;
+        if(t===1){
+          ctx.fillStyle = '#161622';
+          ctx.fillRect(x,y,TILE,TILE);
+        } else {
+          ctx.fillStyle = '#0f0f18';
+          ctx.fillRect(x,y,TILE,TILE);
+          ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+          ctx.strokeRect(x+0.5,y+0.5,TILE-1,TILE-1);
+        }
+        if(t===5){ // lockers
+          ctx.fillStyle = '#1b3b6f';
+          ctx.fillRect(x+4,y+4,TILE-8,TILE-8);
+          ctx.fillStyle = '#8bb5ff';
+          ctx.fillRect(x+TILE-10,y+TILE/2-3,6,6); // handle
+        }
+      }
+    }
+
+    // exit
+    ctx.fillStyle = '#3fa370';
+    ctx.fillRect(exitPos.x-10, exitPos.y-10, 20, 20);
+
+    // keys
+    for(const k of keys){ if(k.taken) continue; ctx.fillStyle='#e8c547'; ctx.beginPath(); ctx.arc(k.x,k.y,6,0,Math.PI*2); ctx.fill(); }
+
+    // cameras fov
+    for(const cam of cameras){
+      // beam
+      ctx.save();
+      ctx.fillStyle = 'rgba(80,140,255,0.08)';
+      drawCone(cam.x, cam.y, cam.angle, cam.fov, cam.range);
+      ctx.restore();
+      // camera body
+      ctx.fillStyle = '#4a73c2';
+      ctx.beginPath();
+      ctx.moveTo(cam.x+Math.cos(cam.angle)*10, cam.y+Math.sin(cam.angle)*10);
+      ctx.lineTo(cam.x+Math.cos(cam.angle+0.8)*10, cam.y+Math.sin(cam.angle+0.8)*10);
+      ctx.lineTo(cam.x+Math.cos(cam.angle-0.8)*10, cam.y+Math.sin(cam.angle-0.8)*10);
+      ctx.closePath();
+      ctx.fill();
+      if(cam.cooldown>0){ // red LED while alarmed
+        ctx.fillStyle = '#ff5d5d';
+        ctx.beginPath(); ctx.arc(cam.x, cam.y, 3, 0, Math.PI*2); ctx.fill();
+      }
+    }
+
+    // enemy FOV
+    drawFOV(enemy, enemy.range, enemy.fov, 'rgba(255,80,80,0.08)');
+
+    // player flashlight (mask)
+    if(player.flashlight && !player.hidden){
+      const coneAngle = player.facing;
+      const coneWidth = Math.PI/5;
+      const coneRange = 220;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle='rgba(180,180,200,0.12)';
+      drawCone(player.x, player.y, coneAngle, coneWidth, coneRange);
+      ctx.restore();
+    }
+
+    // entities
+    // player
+    if(!player.hidden){
+      ctx.fillStyle = '#8bb5ff';
+      ctx.beginPath(); ctx.arc(player.x, player.y, player.r, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Mr. Johnson — stylized black, bald, beard + mustache
+    // head
+    ctx.fillStyle = '#4b3424'; // deep brown skin tone
+    ctx.beginPath(); ctx.arc(enemy.x, enemy.y, enemy.r+1, 0, Math.PI*2); ctx.fill();
+    // beard (lower semi-circle)
+    ctx.fillStyle = '#141414';
+    ctx.beginPath();
+    ctx.arc(enemy.x, enemy.y+2, enemy.r-2, Math.PI*0.15, Math.PI-0.15);
+    ctx.lineTo(enemy.x, enemy.y+3);
+    ctx.closePath(); ctx.fill();
+    // mustache (thin arc)
+    ctx.strokeStyle = '#0d0d0d';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(enemy.x, enemy.y+1, enemy.r-6, Math.PI*0.05, Math.PI-0.05);
+    ctx.stroke();
+
+    // alert marker
+    if(enemy.alert){
+      ctx.fillStyle = '#ff5d5d';
+      ctx.beginPath(); ctx.arc(enemy.x, enemy.y - enemy.r - 10, 4, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  function drawFOV(entity, range, fov, style){
+    ctx.save();
+    ctx.fillStyle = style;
+    const face = enemyFacing(entity);
+    drawCone(entity.x, entity.y, face, fov, range);
+    ctx.restore();
+  }
+
+  function drawCone(x,y,angleCenter, angleWidth, radius){
+    ctx.beginPath();
+    ctx.moveTo(x,y);
+    ctx.arc(x,y, radius, angleCenter - angleWidth/2, angleCenter + angleWidth/2);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Kick off the loop immediately; it will keep running even while paused
+  requestAnimationFrame(update);
+  </script>
+</body>
+</html>
