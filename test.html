@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Westpine Night 9.0</title>
+<style>
+  html, body { margin:0; padding:0; overflow:hidden; background:#111; color:#fff; font-family:sans-serif; }
+  canvas { display:block; background:#222; }
+  #ui {
+    position:absolute; top:10px; left:10px; color:#fff; z-index:100;
+    font-size:18px;
+  }
+  #alert { color:red; font-weight:bold; }
+  #playBtn {
+    position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    font-size:24px; padding:10px 20px;
+    display:none; cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<div id="ui">
+  Stamina: <span id="stamina">100</span><br>
+  Keys: <span id="keys">0</span><br>
+  <span id="alert"></span>
+</div>
+<button id="playBtn">Play Again</button>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// Game state
+let gameOver = false;
+let gameWin = false;
+
+// Player
+const player = {
+  x: 100, y: 100, r: 15, speed:2, sprint:4, stamina:100,
+  dx:0, dy:0, hiding:false, flashlight:true
+};
+
+// Enemy
+const enemy = { x:400, y:200, r:20, speed:1.5, path:[{x:400,y:200},{x:700,y:200},{x:700,y:400},{x:400,y:400}], target:0, alert:false };
+
+// Keys
+let keysCollected = 0;
+const keyPositions = [{x:600,y:300},{x:800,y:100}];
+
+// Hiding spots
+const hideSpots = [{x:200,y:200,r:30},{x:500,y:350,r:30}];
+
+// Cameras
+const cameras = [{x:300,y:100,r:50},{x:600,y:200,r:60}];
+let alertEl = document.getElementById('alert');
+let alertTimeout = null;
+
+// Walls
+const walls = [
+  {x:0,y:0,w:canvas.width,h:10},
+  {x:0,y:0,w:10,h:canvas.height},
+  {x:0,y:canvas.height-10,w:canvas.width,h:10},
+  {x:canvas.width-10,y:0,w:10,h:canvas.height},
+  {x:300,y:150,w:10,h:300},
+  {x:500,y:50,w:10,h:300}
+];
+
+// Input
+const input = {};
+document.addEventListener('keydown', e=>input[e.key.toLowerCase()]=true);
+document.addEventListener('keyup', e=>input[e.key.toLowerCase()]=false);
+
+// Play again button
+document.getElementById('playBtn').onclick = ()=>location.reload();
+
+// Utility
+function distance(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+function clamp(val,min,max){ return Math.max(min,Math.min(max,val)); }
+
+// Collision with walls
+function collideCircleWalls(c){
+  for(const w of walls){
+    let nearestX = clamp(c.x,w.x,w.x+w.w);
+    let nearestY = clamp(c.y,w.y,w.y+w.h);
+    let dx = c.x - nearestX;
+    let dy = c.y - nearestY;
+    if(dx*dx+dy*dy < c.r*c.r){
+      if(Math.abs(dx)>Math.abs(dy)) c.x += dx>0?c.r-Math.abs(dx):-c.r+Math.abs(dx);
+      else c.y += dy>0?c.r-Math.abs(dy):-c.r+Math.abs(dy);
+    }
+  }
+}
+
+// Game loop
+function update(){
+  if(gameOver || gameWin) return;
+
+  // Player movement
+  let speed = input['shift'] && player.stamina>0?player.sprint:player.speed;
+  if(input['w']) player.y-=speed;
+  if(input['s']) player.y+=speed;
+  if(input['a']) player.x-=speed;
+  if(input['d']) player.x+=speed;
+  collideCircleWalls(player);
+
+  // Sprint stamina
+  if(input['shift'] && (input['w']||input['a']||input['s']||input['d'])){
+    player.stamina = clamp(player.stamina-0.5,0,100);
+  }else{
+    player.stamina = clamp(player.stamina+0.3,0,100);
+  }
+  document.getElementById('stamina').innerText = Math.round(player.stamina);
+
+  // Hide toggle
+  player.hiding = hideSpots.some(h=>distance(h,player)<h.r);
+
+  // Flashlight toggle
+  if(input['f']) player.flashlight = !player.flashlight;
+
+  // Key pickup
+  keyPositions.forEach((k,i)=>{
+    if(distance(k,player)<20){
+      keysCollected++;
+      keyPositions.splice(i,1);
+      document.getElementById('keys').innerText = keysCollected;
+    }
+  });
+
+  // Enemy AI patrol
+  let target = enemy.path[enemy.target];
+  let dx = target.x-enemy.x;
+  let dy = target.y-enemy.y;
+  let dist = Math.hypot(dx,dy);
+  if(dist<5) enemy.target=(enemy.target+1)%enemy.path.length;
+  else{ enemy.x += dx/dist*enemy.speed; enemy.y += dy/dist*enemy.speed; }
+
+  // Enemy chase if sees player and not hiding
+  if(distance(enemy,player)<150 && !player.hiding){ gameOverFunc('Caught by enemy!'); }
+
+  // Cameras alert
+  cameras.forEach(cam=>{
+    if(distance(cam,player)<cam.r && !player.hiding){
+      alertEl.innerText = 'ALERT!';
+      clearTimeout(alertTimeout);
+      alertTimeout = setTimeout(()=>alertEl.innerText='',1500);
+    }
+  });
+
+  // Win condition
+  if(keysCollected >= 2 && distance(player,{x:900,y:500})<30) gameWinFunc();
+
+}
+
+// Game over
+function gameOverFunc(msg){
+  gameOver = true;
+  alertEl.innerText = msg;
+  document.getElementById('playBtn').style.display='block';
+}
+
+// Game win
+function gameWinFunc(){
+  gameWin = true;
+  alertEl.innerText = 'You Escaped!';
+  document.getElementById('playBtn').style.display='block';
+}
+
+// Draw
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Walls
+  ctx.fillStyle='gray';
+  walls.forEach(w=>ctx.fillRect(w.x,w.y,w.w,w.h));
+
+  // Hiding spots
+  ctx.fillStyle='darkgreen';
+  hideSpots.forEach(h=>ctx.beginPath(),ctx.arc(h.x,h.y,h.r,0,Math.PI*2),ctx.fill());
+
+  // Keys
+  ctx.fillStyle='gold';
+  keyPositions.forEach(k=>ctx.beginPath(),ctx.arc(k.x,k.y,10,0,Math.PI*2),ctx.fill());
+
+  // Cameras
+  ctx.fillStyle='orange';
+  cameras.forEach(c=>ctx.beginPath(),ctx.arc(c.x,c.y,10,0,Math.PI*2),ctx.fill());
+
+  // Enemy
+  ctx.fillStyle='red';
+  ctx.beginPath();
+  ctx.arc(enemy.x,enemy.y,enemy.r,0,Math.PI*2);
+  ctx.fill();
+
+  // Player
+  ctx.fillStyle=player.hiding?'blue':'white';
+  ctx.beginPath();
+  ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
+  ctx.fill();
+
+  // Flashlight cone
+  if(player.flashlight){
+    ctx.fillStyle='rgba(255,255,200,0.2)';
+    ctx.beginPath();
+    ctx.moveTo(player.x,player.y);
+    ctx.arc(player.x,player.y,150,Math.PI/4,-Math.PI/4);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+// Main loop
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
+loop();
+
+</script>
+</body>
+</html>
