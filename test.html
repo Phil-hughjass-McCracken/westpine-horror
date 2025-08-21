@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Westpine Night — 4.0</title>
+  <title>Westpine Night — 4.1</title>
   <style>
     html, body { height: 100%; margin: 0; background:#0a0a0f; color:#e6e6f0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; }
     #ui { position: fixed; inset: 0 0 auto 0; display:flex; gap:12px; align-items:center; padding:10px 14px; background: linear-gradient(180deg, rgba(10,10,15,.9), rgba(10,10,15,.25)); backdrop-filter: blur(4px); z-index: 10; }
@@ -39,7 +39,7 @@
   <canvas id="game" width="960" height="576"></canvas>
   <div id="overlay">
     <div class="card">
-      <h1 id="title">Westpine Night 4.0</h1>
+      <h1 id="title">Westpine Night 4.1</h1>
       <p id="message">New: Find 8 keys hidden in code-locked classrooms. Find codes on chalkboards to open doors. Hack camera terminals and hide from Mr. Johnson to escape.</p>
       <div>
         <button id="play">Play</button>
@@ -54,34 +54,21 @@
     <div id="changelog-content">
       <h2>Changelog</h2>
       <ul>
-        <li>**v4.0 (August 2025)**
+        <li>**v2.1 (August 2025)**
           <ul>
+            <li>**Bug Fix:** Corrected the issue where the "Play" button didn't start the game.</li>
+            <li>**UI Fix:** The keys collected counter in the UI is now working correctly.</li>
+            <li>**Minor Fixes:** Corrected a few other small bugs and made gameplay more stable.</li>
             <li>**The Mission:** The goal is to collect **8 keys** and escape through the front door.</li>
             <li>**Code Puzzles:** Classrooms are now locked. You must find a two-digit code on a **chalkboard** in another room to unlock them.</li>
             <li>**Interactive Doors:** Doors can now be opened and closed with the **'E' key**.</li>
             <li>**Light Sources:** Added specific points of light to the map, creating brightly lit and dark areas.</li>
-            <li>**Removed:** The inventory, collectibles, and barricades have all been removed.</li>
-          </ul>
-        </li>
-        <li>**v3.0 (August 2025)**
-          <ul>
-            <li>**The Exit:** The goal is no longer the Principal's Office. Escape by finding the **front exit door**.</li>
             <li>**Code Puzzle:** The front door is locked with a four-digit keypad. The code is on a **chalkboard** in a random classroom.</li>
           </ul>
         </li>
-        <li>**v2.2 (September 2025)**
+        <li>**v1.0 (August 20th 2025)**
           <ul>
-            <li>**Inventory System:** Keys and pennants you collect now appear in your inventory in the top-right corner.</li>
-          </ul>
-        </li>
-        <li>**v2.1 (August 2025)**
-          <ul>
-            <li>**Randomized Key Spawns:** Keys now spawn in random locations, making each playthrough a new challenge.</li>
-          </ul>
-        </li>
-        <li>**v2.0 (June 2025)**
-          <ul>
-            <li>Initial public release with scrolling map, enemy AI, and camera systems.</li>
+            <li>Public release with smaller map, Mr. Johnson AI</li>
           </ul>
         </li>
       </ul>
@@ -125,7 +112,7 @@
 
   const TILE = 32;
 
-  // Map legend: 1=wall, 0=floor, 2=spawn, 3=door, 5=locker, 6=camera terminal, 7=exit door, 8=noise maker, 9=chalkboard, 11=light source
+  // Map legend: 1=wall, 0=floor, 2=spawn, 3=door, 4=key, 5=locker, 6=camera terminal, 7=exit door, 8=noise maker, 9=chalkboard, 11=light source
   const MAP_BASE = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,2,0,0,0,0,0,0,3,0,5,5,0,0,0,0,3,0,0,0,0,3,0,0,0,0,0,0,0,0,3,0,0,0,0,0,6,0,0,1],
@@ -213,6 +200,7 @@
 
   const input = { up:false, down:false, left:false, right:false, sprint:false, interact:false };
   onkeydown = e => {
+    if(gameOver || won) return;
     if(e.key==='ArrowUp'||e.key==='w') input.up=true;
     if(e.key==='ArrowDown'||e.key==='s') input.down=true;
     if(e.key==='ArrowLeft'||e.key==='a') input.left=true;
@@ -222,6 +210,7 @@
     if(e.key==='e' || e.key==='E') input.interact = true;
   }
   onkeyup = e => {
+    if(gameOver || won) return;
     if(e.key==='ArrowUp'||e.key==='w') input.up=false;
     if(e.key==='ArrowDown'||e.key==='s') input.down=false;
     if(e.key==='ArrowLeft'||e.key==='a') input.left=false;
@@ -364,22 +353,20 @@
         } else if(tile === 8){
           obj.used = false;
           noiseMakers.push(obj);
+        } else if (tile === 4) {
+          obj.taken = false;
+          keys.push(obj);
         }
       }
     }
-    // Set up Chalkboards and Keys
     const codeLocations = findAllTiles(9).slice(0, doors.length);
-    const keyLocations = findAllTiles(4);
     for(let i=0; i<doors.length; i++){
       const door = doors[i];
       const chalkboard = codeLocations[i];
       chalkboard.code = door.code;
       chalkboards.push(chalkboard);
     }
-    for(let i=0; i<keysToCollect; i++){
-      keys.push({...keyLocations[i], taken: false});
-    }
-
+    
     // Static lights
     lightSources.push({x: TILE*25, y: TILE*4, radius: 200});
     lightSources.push({x: TILE*12, y: TILE*18, radius: 240});
