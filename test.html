@@ -1,221 +1,342 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Westpine Night 9.0</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Westpine Night — 2.0</title>
 <style>
-  html, body { margin:0; padding:0; overflow:hidden; background:#111; color:#fff; font-family:sans-serif; }
-  canvas { display:block; background:#222; }
-  #ui {
-    position:absolute; top:10px; left:10px; color:#fff; z-index:100;
-    font-size:18px;
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: #0a0a0f;
+    color: #e6e6f0;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial;
   }
-  #alert { color:red; font-weight:bold; }
-  #playBtn {
-    position:absolute; top:50%; left:50%;
-    transform:translate(-50%,-50%);
-    font-size:24px; padding:10px 20px;
-    display:none; cursor:pointer;
+
+  #ui {
+    position: fixed;
+    inset: 0 0 auto 0;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 14px;
+    background: linear-gradient(180deg, rgba(10,10,15,.9), rgba(10,10,15,.25));
+    backdrop-filter: blur(4px);
+    z-index: 10;
+  }
+
+  .pill {
+    padding: 4px 10px;
+    border-radius: 14px;
+    background: #1b1b25;
+    border: 1px solid #2b2b38;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+    font-size: 14px;
+  }
+
+  .right { margin-left: auto; opacity: .95; }
+  .inv { display: flex; gap: 8px; align-items: center; }
+
+  #game { display: block; margin: 0 auto; image-rendering: pixelated; }
+
+  #overlay {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,.8);
+    z-index: 20;
+  }
+
+  #overlay .card {
+    background: #121219;
+    border: 1px solid #2b2b38;
+    border-radius: 16px;
+    padding: 20px;
+    width: min(680px, 92vw);
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,.6);
+  }
+
+  #overlay h1 { margin:0 0 8px; font-size:28px; }
+  #overlay p { margin:8px 0 16px; line-height:1.5; }
+
+  #overlay button {
+    background: #2b2bff;
+    border: 0;
+    color: white;
+    padding: 10px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  #overlay button.secondary {
+    background: #1b1b25;
+    border: 1px solid #2b2b38;
+    margin-left: 8px;
+  }
+
+  #alert {
+    position: fixed;
+    right: 12px;
+    bottom: 12px;
+    background: #3a0d0d;
+    color: #ffb3b3;
+    padding: 8px 12px;
+    border: 1px solid #5c1717;
+    border-radius: 10px;
+    display: none;
+    font-weight: 700;
+    z-index: 15;
   }
 </style>
 </head>
 <body>
-<canvas id="gameCanvas"></canvas>
-<div id="ui">
-  Stamina: <span id="stamina">100</span><br>
-  Keys: <span id="keys">0</span><br>
-  <span id="alert"></span>
-</div>
-<button id="playBtn">Play Again</button>
+  <div id="ui">
+    <div class="pill">WASD/Arrows: Move</div>
+    <div class="pill">Shift: Sprint (noise!)</div>
+    <div class="pill">F: Flashlight</div>
+    <div class="pill">E: Interact/Hide/Hack</div>
+    <div class="pill right inv">
+      Keys: <span id="keys">0</span>/4 · Stamina: <span id="stamina">100</span>% · Hidden: <span id="hidden">No</span> · Cams: <span id="cams">Online</span>
+    </div>
+  </div>
+
+  <canvas id="game" width="960" height="576"></canvas>
+
+  <div id="overlay">
+    <div class="card">
+      <h1 id="title">Westpine Night 2.0</h1>
+      <p id="message">
+        New: bigger scrolling map, flickering lights, camera terminals, inventory HUD, enterable classrooms, hearing & fake-outs<br/>
+        Collect <b>4 keys</b>, avoid Mr. Johnson, hide in <b>lockers</b>, hack <b>camera terminals</b>, and get to the Principal's Office door.
+      </p>
+      <div>
+        <button id="play">Play</button>
+        <button id="retry" class="secondary" style="display:none">Retry</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="alert">ALERT: Camera spotted you!</div>
 
 <script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
 
-// Game state
-let gameOver = false;
-let gameWin = false;
+  const uiKeys = document.getElementById('keys');
+  const uiStam = document.getElementById('stamina');
+  const uiHidden = document.getElementById('hidden');
+  const uiCams = document.getElementById('cams');
+  const overlay = document.getElementById('overlay');
+  const titleEl = document.getElementById('title');
+  const msgEl = document.getElementById('message');
+  const playBtn = document.getElementById('play');
+  const retryBtn = document.getElementById('retry');
+  const alertEl = document.getElementById('alert');
 
-// Player
-const player = {
-  x: 100, y: 100, r: 15, speed:2, sprint:4, stamina:100,
-  dx:0, dy:0, hiding:false, flashlight:true
-};
+  const TILE = 32;
 
-// Enemy
-const enemy = { x:400, y:200, r:20, speed:1.5, path:[{x:400,y:200},{x:700,y:200},{x:700,y:400},{x:400,y:400}], target:0, alert:false };
+  const MAP = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,2,0,0,0,0,0,0,1,0,5,5,0,0,0,0,1,0,0,0,0,1,0,0,0,4,0,0,0,0,1,0,0,0,0,0,6,0,0,1],
+    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,1,0,1,1,0,1,0,1,0,0,0,1,1,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,1,1,0,5,0,0,0,1,1,0,0,5,0,1,0,0,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,5,0,1,0,1,0,0,1,0,0,0,1,0,0,0,0,5,1,0,0,1],
+    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,0,1,1,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,4,0,1],
+    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,0,1,1,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,5,0,0,0,0,0,1,0,0,0,0,5,0,0,0,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,0,0,0,6,1,0,0,1],
+    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,1,1,0,0,0,0,0,1,1,0,0,0,1,1,0,0,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,5,1,0,0,1],
+    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,1,1,0,0,0,1,0,1,1,0,0,1,0,7,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,5,1,0,0,1],
+    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,4,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,5,1,0,0,1],
+    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,1,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1],
+    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,0,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,5,1,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+  ];
 
-// Keys
-let keysCollected = 0;
-const keyPositions = [{x:600,y:300},{x:800,y:100}];
+  let player = {x:64, y:64, vx:0, vy:0, speed:2, hidden:false, stamina:100};
+  let keys = [];
+  let heldKeys = 0;
+  let camsOnline = true;
+  let camAlertTimer = 0;
 
-// Hiding spots
-const hideSpots = [{x:200,y:200,r:30},{x:500,y:350,r:30}];
+  let input = {up:false,down:false,left:false,right:false,sprint:false,interact:false};
 
-// Cameras
-const cameras = [{x:300,y:100,r:50},{x:600,y:200,r:60}];
-let alertEl = document.getElementById('alert');
-let alertTimeout = null;
+  function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+  function angle(a,b){ return Math.atan2(b.y-a.y,b.x-a.x); }
 
-// Walls
-const walls = [
-  {x:0,y:0,w:canvas.width,h:10},
-  {x:0,y:0,w:10,h:canvas.height},
-  {x:0,y:canvas.height-10,w:canvas.width,h:10},
-  {x:canvas.width-10,y:0,w:10,h:canvas.height},
-  {x:300,y:150,w:10,h:300},
-  {x:500,y:50,w:10,h:300}
-];
-
-// Input
-const input = {};
-document.addEventListener('keydown', e=>input[e.key.toLowerCase()]=true);
-document.addEventListener('keyup', e=>input[e.key.toLowerCase()]=false);
-
-// Play again button
-document.getElementById('playBtn').onclick = ()=>location.reload();
-
-// Utility
-function distance(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
-function clamp(val,min,max){ return Math.max(min,Math.min(max,val)); }
-
-// Collision with walls
-function collideCircleWalls(c){
-  for(const w of walls){
-    let nearestX = clamp(c.x,w.x,w.x+w.w);
-    let nearestY = clamp(c.y,w.y,w.y+w.h);
-    let dx = c.x - nearestX;
-    let dy = c.y - nearestY;
-    if(dx*dx+dy*dy < c.r*c.r){
-      if(Math.abs(dx)>Math.abs(dy)) c.x += dx>0?c.r-Math.abs(dx):-c.r+Math.abs(dx);
-      else c.y += dy>0?c.r-Math.abs(dy):-c.r+Math.abs(dy);
+  // generate keys positions
+  function spawnKeys(){
+    keys = [];
+    for(let y=0;y<MAP.length;y++){
+      for(let x=0;x<MAP[0].length;x++){
+        if(MAP[y][x]===4) keys.push({x:x*TILE+16, y:y*TILE+16, taken:false});
+      }
     }
   }
-}
 
-// Game loop
-function update(){
-  if(gameOver || gameWin) return;
+  // enemy patrol + fakeout
+  let enemy = {
+    x:600, y:200, speed:1.5, alert:false, target:null,
+    patrol:[{x:600,y:200},{x:800,y:200},{x:800,y:400},{x:600,y:400}],
+    patrolIndex:0,
+    fakeoutTimer:0, cooldown:0
+  };
 
-  // Player movement
-  let speed = input['shift'] && player.stamina>0?player.sprint:player.speed;
-  if(input['w']) player.y-=speed;
-  if(input['s']) player.y+=speed;
-  if(input['a']) player.x-=speed;
-  if(input['d']) player.x+=speed;
-  collideCircleWalls(player);
+  function updateEnemy(){
+    // simple patrol
+    if(!enemy.alert && enemy.fakeoutTimer<=0){
+      const wp = enemy.patrol[enemy.patrolIndex];
+      let a = angle(enemy, wp);
+      enemy.x += Math.cos(a)*enemy.speed;
+      enemy.y += Math.sin(a)*enemy.speed;
+      if(dist(enemy, wp)<16) enemy.patrolIndex=(enemy.patrolIndex+1)%enemy.patrol.length;
+    }
 
-  // Sprint stamina
-  if(input['shift'] && (input['w']||input['a']||input['s']||input['d'])){
-    player.stamina = clamp(player.stamina-0.5,0,100);
-  }else{
-    player.stamina = clamp(player.stamina+0.3,0,100);
+    // alert chasing
+    if(enemy.alert){
+      const a = angle(enemy, enemy.target);
+      enemy.x += Math.cos(a)*enemy.speed*1.2;
+      enemy.y += Math.sin(a)*enemy.speed*1.2;
+      enemy.cooldown--;
+      if(enemy.cooldown<=0) enemy.alert=false;
+    }
+
+    // fakeout movement
+    if(enemy.fakeoutTimer>0){
+      enemy.fakeoutTimer--;
+      const wp = enemy.patrol[enemy.patrolIndex];
+      const a = angle(enemy, wp);
+      enemy.x += Math.cos(a)*enemy.speed;
+      enemy.y += Math.sin(a)*enemy.speed;
+      if(dist(enemy, wp)<14) enemy.fakeoutTimer=0;
+    }
+
+    // camera detection
+    if(camAlertTimer>0){
+      camAlertTimer--;
+      if(camAlertTimer<=0) alertEl.style.display='none';
+    }
   }
-  document.getElementById('stamina').innerText = Math.round(player.stamina);
 
-  // Hide toggle
-  player.hiding = hideSpots.some(h=>distance(h,player)<h.r);
+  function updatePlayer(){
+    let spd = player.speed;
+    if(input.sprint && player.stamina>0){
+      spd *= 1.5; player.stamina-=0.5;
+    } else if(player.stamina<100){
+      player.stamina+=0.25;
+    }
 
-  // Flashlight toggle
-  if(input['f']) player.flashlight = !player.flashlight;
+    player.vx=0; player.vy=0;
+    if(input.up) player.vy=-spd;
+    if(input.down) player.vy=spd;
+    if(input.left) player.vx=-spd;
+    if(input.right) player.vx=spd;
 
-  // Key pickup
-  keyPositions.forEach((k,i)=>{
-    if(distance(k,player)<20){
-      keysCollected++;
-      keyPositions.splice(i,1);
-      document.getElementById('keys').innerText = keysCollected;
+    // simple collision
+    let nx=player.x+player.vx, ny=player.y+player.vy;
+    if(!tileAt(nx,ny)) { player.x=nx; player.y=ny; }
+
+    // collect keys
+    for(const k of keys){
+      if(!k.taken && dist(player,k)<18){
+        k.taken=true; heldKeys++; uiKeys.textContent=heldKeys;
+      }
+    }
+
+    // hidden
+    player.hidden=input.interact?true:false;
+    uiHidden.textContent=player.hidden?'Yes':'No';
+    uiStam.textContent=Math.round(player.stamina);
+  }
+
+  function tileAt(x,y){
+    const tx=Math.floor(x/TILE), ty=Math.floor(y/TILE);
+    if(ty<0 || ty>=MAP.length || tx<0 || tx>=MAP[0].length) return 1;
+    return MAP[ty][tx]===1;
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+
+    // draw map
+    for(let y=0;y<MAP.length;y++){
+      for(let x=0;x<MAP[0].length;x++){
+        switch(MAP[y][x]){
+          case 1: ctx.fillStyle='#222'; break; // wall
+          case 4: ctx.fillStyle='#ff0'; break; // key
+          case 5: ctx.fillStyle='#555'; break; // floor/locker
+          case 6: ctx.fillStyle='#0ff'; break; // camera
+          case 7: ctx.fillStyle='#f00'; break; // door
+          default: ctx.fillStyle='#111';
+        }
+        ctx.fillRect(x*TILE,y*TILE,TILE,TILE);
+      }
+    }
+
+    // keys
+    for(const k of keys){
+      if(!k.taken){ ctx.fillStyle='#ff0'; ctx.beginPath(); ctx.arc(k.x,k.y,8,0,Math.PI*2); ctx.fill(); }
+    }
+
+    // player
+    ctx.fillStyle='#0f0';
+    ctx.beginPath(); ctx.arc(player.x,player.y,10,0,Math.PI*2); ctx.fill();
+
+    // enemy
+    ctx.fillStyle=enemy.alert?'#f00':'#f80';
+    ctx.beginPath(); ctx.arc(enemy.x,enemy.y,12,0,Math.PI*2); ctx.fill();
+  }
+
+  function gameLoop(){
+    updatePlayer();
+    updateEnemy();
+    draw();
+    requestAnimationFrame(gameLoop);
+  }
+
+  // input
+  window.addEventListener('keydown', e=>{
+    switch(e.code){
+      case 'ArrowUp': case 'KeyW': input.up=true; break;
+      case 'ArrowDown': case 'KeyS': input.down=true; break;
+      case 'ArrowLeft': case 'KeyA': input.left=true; break;
+      case 'ArrowRight': case 'KeyD': input.right=true; break;
+      case 'ShiftLeft': input.sprint=true; break;
+      case 'KeyE': input.interact=true; break;
+    }
+  });
+  window.addEventListener('keyup', e=>{
+    switch(e.code){
+      case 'ArrowUp': case 'KeyW': input.up=false; break;
+      case 'ArrowDown': case 'KeyS': input.down=false; break;
+      case 'ArrowLeft': case 'KeyA': input.left=false; break;
+      case 'ArrowRight': case 'KeyD': input.right=false; break;
+      case 'ShiftLeft': input.sprint=false; break;
+      case 'KeyE': input.interact=false; break;
     }
   });
 
-  // Enemy AI patrol
-  let target = enemy.path[enemy.target];
-  let dx = target.x-enemy.x;
-  let dy = target.y-enemy.y;
-  let dist = Math.hypot(dx,dy);
-  if(dist<5) enemy.target=(enemy.target+1)%enemy.path.length;
-  else{ enemy.x += dx/dist*enemy.speed; enemy.y += dy/dist*enemy.speed; }
-
-  // Enemy chase if sees player and not hiding
-  if(distance(enemy,player)<150 && !player.hiding){ gameOverFunc('Caught by enemy!'); }
-
-  // Cameras alert
-  cameras.forEach(cam=>{
-    if(distance(cam,player)<cam.r && !player.hiding){
-      alertEl.innerText = 'ALERT!';
-      clearTimeout(alertTimeout);
-      alertTimeout = setTimeout(()=>alertEl.innerText='',1500);
-    }
-  });
-
-  // Win condition
-  if(keysCollected >= 2 && distance(player,{x:900,y:500})<30) gameWinFunc();
-
-}
-
-// Game over
-function gameOverFunc(msg){
-  gameOver = true;
-  alertEl.innerText = msg;
-  document.getElementById('playBtn').style.display='block';
-}
-
-// Game win
-function gameWinFunc(){
-  gameWin = true;
-  alertEl.innerText = 'You Escaped!';
-  document.getElementById('playBtn').style.display='block';
-}
-
-// Draw
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  // Walls
-  ctx.fillStyle='gray';
-  walls.forEach(w=>ctx.fillRect(w.x,w.y,w.w,w.h));
-
-  // Hiding spots
-  ctx.fillStyle='darkgreen';
-  hideSpots.forEach(h=>ctx.beginPath(),ctx.arc(h.x,h.y,h.r,0,Math.PI*2),ctx.fill());
-
-  // Keys
-  ctx.fillStyle='gold';
-  keyPositions.forEach(k=>ctx.beginPath(),ctx.arc(k.x,k.y,10,0,Math.PI*2),ctx.fill());
-
-  // Cameras
-  ctx.fillStyle='orange';
-  cameras.forEach(c=>ctx.beginPath(),ctx.arc(c.x,c.y,10,0,Math.PI*2),ctx.fill());
-
-  // Enemy
-  ctx.fillStyle='red';
-  ctx.beginPath();
-  ctx.arc(enemy.x,enemy.y,enemy.r,0,Math.PI*2);
-  ctx.fill();
-
-  // Player
-  ctx.fillStyle=player.hiding?'blue':'white';
-  ctx.beginPath();
-  ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
-  ctx.fill();
-
-  // Flashlight cone
-  if(player.flashlight){
-    ctx.fillStyle='rgba(255,255,200,0.2)';
-    ctx.beginPath();
-    ctx.moveTo(player.x,player.y);
-    ctx.arc(player.x,player.y,150,Math.PI/4,-Math.PI/4);
-    ctx.closePath();
-    ctx.fill();
-  }
-}
-
-// Main loop
-function loop(){ update(); draw(); requestAnimationFrame(loop); }
-loop();
-
+  // start game
+  playBtn.onclick = ()=>{
+    overlay.style.display='none';
+    spawnKeys();
+    gameLoop();
+  };
+})();
 </script>
 </body>
 </html>
