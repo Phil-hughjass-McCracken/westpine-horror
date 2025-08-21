@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Westpine Night — 2.0</title>
+  <title>Westpine Night — 4.0</title>
   <style>
     html, body { height: 100%; margin: 0; background:#0a0a0f; color:#e6e6f0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; }
     #ui { position: fixed; inset: 0 0 auto 0; display:flex; gap:12px; align-items:center; padding:10px 14px; background: linear-gradient(180deg, rgba(10,10,15,.9), rgba(10,10,15,.25)); backdrop-filter: blur(4px); z-index: 10; }
@@ -23,10 +23,9 @@
     #changelog-content h2 { margin-top:0; }
     #changelog-content ul { padding-left:20px; }
     #changelog-content li { margin-bottom:8px; }
-    #inventory { display:flex; gap:6px; align-items:center; }
-    .inv-item { width:20px; height:20px; border:1px solid #2b2b38; border-radius:4px; }
-    .key-icon { background:#e8c547; }
-    .pennant-icon { background:#6b91c9; }
+    #code-prompt { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; justify-content:center; align-items:center; z-index: 40; }
+    #code-card { background:#121219; border:1px solid #2b2b38; border-radius:16px; padding:20px; text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,.6); }
+    #code-input { width:120px; text-align:center; font-size:24px; letter-spacing:4px; padding:8px; background:#0b0b10; border:1px solid #2b2b38; color:#e6e6f0; }
   </style>
 </head>
 <body>
@@ -34,14 +33,14 @@
     <div class="pill">WASD/Arrows: Move</div>
     <div class="pill">Shift: Sprint (noise!)</div>
     <div class="pill">F: Flashlight</div>
-    <div class="pill">E: Interact/Hide/Hack</div>
-    <div class="pill right inv">Inventory: <span id="inventory"></span> · Stamina: <span id="stamina">100</span>% · Hidden: <span id="hidden">No</span> · Cams: <span id="cams">Online</span></div>
+    <div class="pill">E: Interact/Hide/Open Door</div>
+    <div class="pill right inv">Keys: <span id="keys">0</span>/8 · Stamina: <span id="stamina">100</span>% · Hidden: <span id="hidden">No</span> · Cams: <span id="cams">Online</span></div>
   </div>
   <canvas id="game" width="960" height="576"></canvas>
   <div id="overlay">
     <div class="card">
-      <h1 id="title">Westpine Night 2.0</h1>
-      <p id="message">New: bigger scrolling map, flickering lights, camera terminals, inventory HUD, enterable classrooms, hearing & fake-outs<br/>Collect <b>4 keys</b>, avoid Mr. Johnson, hide in <b>lockers</b>, hack <b>camera terminals</b>, and get to the Principal's Office door.</p>
+      <h1 id="title">Westpine Night 4.0</h1>
+      <p id="message">New: Find 8 keys hidden in code-locked classrooms. Find codes on chalkboards to open doors. Hack camera terminals and hide from Mr. Johnson to escape.</p>
       <div>
         <button id="play">Play</button>
         <button id="retry" class="secondary" style="display:none">Retry</button>
@@ -55,6 +54,21 @@
     <div id="changelog-content">
       <h2>Changelog</h2>
       <ul>
+        <li>**v4.0 (August 2025)**
+          <ul>
+            <li>**The Mission:** The goal is to collect **8 keys** and escape through the front door.</li>
+            <li>**Code Puzzles:** Classrooms are now locked. You must find a two-digit code on a **chalkboard** in another room to unlock them.</li>
+            <li>**Interactive Doors:** Doors can now be opened and closed with the **'E' key**.</li>
+            <li>**Light Sources:** Added specific points of light to the map, creating brightly lit and dark areas.</li>
+            <li>**Removed:** The inventory, collectibles, and barricades have all been removed.</li>
+          </ul>
+        </li>
+        <li>**v3.0 (August 2025)**
+          <ul>
+            <li>**The Exit:** The goal is no longer the Principal's Office. Escape by finding the **front exit door**.</li>
+            <li>**Code Puzzle:** The front door is locked with a four-digit keypad. The code is on a **chalkboard** in a random classroom.</li>
+          </ul>
+        </li>
         <li>**v2.2 (September 2025)**
           <ul>
             <li>**Inventory System:** Keys and pennants you collect now appear in your inventory in the top-right corner.</li>
@@ -63,15 +77,6 @@
         <li>**v2.1 (August 2025)**
           <ul>
             <li>**Randomized Key Spawns:** Keys now spawn in random locations, making each playthrough a new challenge.</li>
-            <li>**New Collectibles:** Added 5 "Westpine Pennants" hidden throughout the map for players to find.</li>
-            <li>**New Interactables:**
-              <ul>
-                <li>**Noise Makers:** Use E to activate a distraction and lure Mr. Johnson away.</li>
-                <li>**Barricades:** Use E to break through certain walls, creating new paths. (Warning: They are loud!)</li>
-              </ul>
-            </li>
-            <li>**Reduced Light Flickering:** The frequency of lights flickering has been lowered to make these moments more dramatic.</li>
-            <li>**Minor Bug Fixes:** Squashed some minor bugs and made performance improvements.</li>
           </ul>
         </li>
         <li>**v2.0 (June 2025)**
@@ -84,18 +89,26 @@
     </div>
   </div>
 
+  <div id="code-prompt">
+    <div id="code-card">
+      <h2>Enter Code</h2>
+      <input type="number" id="code-input" maxlength="2" placeholder="__" />
+      <div style="margin-top:10px;">
+        <button id="submit-code">Unlock</button>
+        <button id="cancel-code" class="secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-  // --- Westpine Night 2.2: scrolling-map stealth prototype (single file, no assets) ---
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
 
   const uiKeys = document.getElementById('keys');
-  const uiPennants = document.getElementById('pennants');
   const uiStam = document.getElementById('stamina');
   const uiHidden = document.getElementById('hidden');
   const uiCams = document.getElementById('cams');
-  const uiInventory = document.getElementById('inventory');
   const overlay = document.getElementById('overlay');
   const titleEl = document.getElementById('title');
   const msgEl = document.getElementById('message');
@@ -105,30 +118,31 @@
   const changelogPopup = document.getElementById('changelog-popup');
   const closeChangelogBtn = document.getElementById('close-changelog');
   const alertEl = document.getElementById('alert');
+  const codePrompt = document.getElementById('code-prompt');
+  const codeInput = document.getElementById('code-input');
+  const submitCodeBtn = document.getElementById('submit-code');
+  const cancelCodeBtn = document.getElementById('cancel-code');
 
-  const TILE = 32; // pixels per tile
+  const TILE = 32;
 
-  // Map legend: 1=wall, 0=floor, 2=spawn, 4=key, 5=locker, 6=camera terminal, 7=principal office door
-  // New: 8=noise maker, 9=pennant, 10=barricade
-  const MAP = [
-    // 0           5         10         15         20         25         30         35         40
-    //            |          |          |          |          |          |          |          |
+  // Map legend: 1=wall, 0=floor, 2=spawn, 3=door, 5=locker, 6=camera terminal, 7=exit door, 8=noise maker, 9=chalkboard, 11=light source
+  const MAP_BASE = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    [1,2,0,0,0,0,0,0,1,0,5,5,0,0,0,0,1,0,0,0,0,1,0,0,0,4,0,0,0,0,1,0,0,0,0,0,6,0,0,1],
+    [1,2,0,0,0,0,0,0,3,0,5,5,0,0,0,0,3,0,0,0,0,3,0,0,0,0,0,0,0,0,3,0,0,0,0,0,6,0,0,1],
     [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,1,0,1,1,0,1,0,1,0,0,0,1,1,0,1,0,1,1,0,0,1,0,0,1],
     [1,0,0,1,1,0,5,0,0,0,1,1,0,0,5,0,1,0,0,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
     [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,5,0,1,0,1,0,0,1,0,0,0,1,0,0,0,0,5,1,0,0,1],
     [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,0,1,1,0,0,1,0,1,1,0,0,1,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,4,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
     [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,0,1,1,0,0,1,0,1,1,0,0,1,0,0,1],
     [1,0,5,0,0,0,0,0,1,0,0,0,0,5,0,0,0,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,0,0,0,6,1,0,0,1],
     [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
     [1,0,0,1,1,0,0,0,0,0,1,1,0,0,0,1,1,0,0,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
     [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,5,1,0,0,1],
-    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,1,1,0,0,0,1,0,1,1,0,0,1,0,7,1],
+    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,1,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
     [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1],
     [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
-    [1,0,4,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
     [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,5,1,0,0,1],
     [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,1,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
     [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1],
@@ -138,25 +152,26 @@
     [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,1,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
   ];
+  let MAP = JSON.parse(JSON.stringify(MAP_BASE));
 
   const ROWS = MAP.length;
   const COLS = MAP[0].length;
 
-  const keysToCollect = 4;
-  const pennantsToCollect = 5;
+  const keysToCollect = 8;
+  let keysCollected = 0;
 
   function findTile(n){
     for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===n) return {x:c*TILE+TILE/2, y:r*TILE+TILE/2};
     return {x:TILE*2, y:TILE*2};
   }
 
-  const spawn = findTile(2);
-  // Principal's Office door tile (7) is the true exit
   function findAllTiles(n){ const arr=[]; for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===n) arr.push({x:c*TILE+TILE/2, y:r*TILE+TILE/2, r, c}); return arr; }
-  const officeDoor = findAllTiles(7)[0];
+
+  const spawn = findTile(2);
+  const exitDoor = findAllTiles(7)[0];
 
   // Entities
-  const player = { x: spawn.x, y: spawn.y, r: 12, speed: 2.1, sprint: 3.3, vx:0, vy:0, stamina: 100, flashlight:false, facing:0, hidden:false, inventory: [] };
+  const player = { x: spawn.x, y: spawn.y, r: 12, speed: 2.1, sprint: 3.3, vx:0, vy:0, stamina: 100, flashlight:false, facing:0, hidden:false };
   const enemy = { x: spawn.x+200, y: spawn.y+40, r:14, speed:1.85, fov: Math.PI/4.5, baseRange: 260, alert:false, target:null, patrol:[], patrolIndex:0, cooldown:0, fakeoutTimer:0 };
 
   // Camera scroll
@@ -172,57 +187,29 @@
     {x: TILE*22, y: TILE*4},
   ];
 
-  // Collectibles spawn locations
-  const keySpawnPoints = findAllTiles(4);
-  const pennantSpawnPoints = [
-    {x:TILE*2.5, y:TILE*8.5, taken:false, r:8, c:2}, // in classroom
-    {x:TILE*14.5, y:TILE*16.5, taken:false, r:16, c:14}, // by lockers
-    {x:TILE*25.5, y:TILE*1.5, taken:false, r:1, c:25}, // corner
-    {x:TILE*33.5, y:TILE*21.5, taken:false, r:21, c:33}, // far corner
-    {x:TILE*18.5, y:TILE*18.5, taken:false, r:18, c:18}, // middle area
-  ];
-  const noiseMakers = [
-    {x:TILE*35.5, y:TILE*1.5, used:false, r:1, c:35}, // in gym area
-    {x:TILE*3.5, y:TILE*1.5, used:false, r:1, c:3} // by spawn
-  ];
-  const barricades = [
-    {x: TILE*1.5, y: TILE*22.5, broken: false, r: 22, c: 1}, // bottom left
-    {x: TILE*19.5, y: TILE*11.5, broken: false, r: 11, c: 19}, // middle wall
-  ]
-
-  // Keys spawn (tile==4)
+  // Map elements that need state
+  let doors = [];
+  let chalkboards = [];
   let keys = [];
-
-  // Lockers (tile==5)
   let lockers = [];
-  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===5) lockers.push({x:c*TILE+TILE/2, y:r*TILE+TILE/2});
-
-  // Terminals (tile==6)
   let terminals = [];
-  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===6) terminals.push({x:c*TILE+TILE/2, y:r*TILE+TILE/2});
+  let lightSources = [];
+  let noiseMakers = [];
 
-  // Cameras
-  const cameras = [
-    {x:TILE*10.5, y:TILE*2.5, range:240, fov:Math.PI/5, angle:0, min:-Math.PI/3, max:Math.PI/3, dir:1, speed:0.01, cooldown:0},
-    {x:TILE*22.5, y:TILE*12.5, range:260, fov:Math.PI/5, angle:Math.PI, min:Math.PI-0.9, max:Math.PI+0.9, dir:1, speed:0.012, cooldown:0},
-    {x:TILE*35.5, y:TILE*4.5,  range:220, fov:Math.PI/6, angle:Math.PI/2, min:Math.PI/2-0.7, max:Math.PI/2+0.7, dir:1, speed:0.009, cooldown:0},
-    {x:TILE*16.5, y:TILE*8.5,  range:220, fov:Math.PI/6, angle:-Math.PI/2, min:-Math.PI/2-0.7, max:-Math.PI/2+0.7, dir:1, speed:0.011, cooldown:0},
-  ];
+  let codePromptActive = false;
+  let activeDoor = null;
 
   // Systems
   let running = false;
   let gameOver = false;
   let won = false;
   let camAlertTimer = 0;
-  let camerasDisabledTimer = 0; // when >0, cameras ignore you
+  let camerasDisabledTimer = 0;
+  let lightLevel = 1;
+  let flickerTimer = 0;
+  let blackoutTimer = 0;
 
-  // Lighting
-  let lightLevel = 1; // 1 = normal, <1 = darker
-  let flickerTimer = 0; // small flickers
-  let blackoutTimer = 0; // full darkness moments
-
-  // Hearing
-  const HEAR_RANGE = 280; // Johnson hears sprinting within this range
+  const HEAR_RANGE = 280;
 
   const input = { up:false, down:false, left:false, right:false, sprint:false, interact:false };
   onkeydown = e => {
@@ -244,14 +231,13 @@
 
   function tileAt(x,y){
     const c = Math.floor(x / TILE), r = Math.floor(y / TILE);
-    if(r<0||r>=ROWS||c<0||c>=COLS) return 1; // outside is wall
+    if(r<0||r>=ROWS||c<0||c>=COLS) return 1;
     return MAP[r][c];
   }
 
   function collideCircleWalls(obj){
-    // stop at walls along axes
-    if(tileAt(obj.x+obj.vx+Math.sign(obj.vx)*obj.r, obj.y)===1 || (MAP[Math.floor(obj.y/TILE)][Math.floor((obj.x+obj.vx+Math.sign(obj.vx)*obj.r)/TILE)] === 10 && !barricades.find(b => b.r === Math.floor(obj.y/TILE) && b.c === Math.floor((obj.x+obj.vx+Math.sign(obj.vx)*obj.r)/TILE)).broken)) obj.vx = 0;
-    if(tileAt(obj.x, obj.y+obj.vy+Math.sign(obj.vy)*obj.r)===1 || (MAP[Math.floor((obj.y+obj.vy+Math.sign(obj.vy)*obj.r)/TILE)][Math.floor(obj.x/TILE)] === 10 && !barricades.find(b => b.r === Math.floor((obj.y+obj.vy+Math.sign(obj.vy)*obj.r)/TILE) && b.c === Math.floor(obj.x/TILE)).broken)) obj.vy = 0;
+    if(tileAt(obj.x+obj.vx+Math.sign(obj.vx)*obj.r, obj.y)===1) obj.vx = 0;
+    if(tileAt(obj.x, obj.y+obj.vy+Math.sign(obj.vy)*obj.r)===1) obj.vy = 0;
     if(tileAt(obj.x+Math.sign(obj.vx)*obj.r, obj.y+Math.sign(obj.vy)*obj.r)===1){ obj.vx=0; obj.vy=0; }
   }
 
@@ -264,19 +250,20 @@
     const withinCone = Math.abs(normalizeAngle(ang - angleCenter)) <= fov/2;
     if(!withinCone) return false;
     const d = dist(from, to); if(d>maxDist) return false;
-    // raycast
     const steps = Math.ceil(d/6);
     for(let i=1;i<=steps;i++){
       const px = from.x + (to.x-from.x)*(i/steps);
       const py = from.y + (to.y-from.y)*(i/steps);
       const t = tileAt(px,py);
-      if(t===1 || (t === 10 && !barricades.find(b => b.r === Math.floor(py/TILE) && b.c === Math.floor(px/TILE)).broken)) return false;
+      if(t===1) return false;
+      const door = doors.find(d => d.r === Math.floor(py/TILE) && d.c === Math.floor(px/TILE));
+      if(door && !door.open) return false;
     }
     return true;
   }
 
   function canSeeEnemy(){
-    const ambient = blackoutTimer>0 ? 0.6 : (0.8 + 0.2*lightLevel); // darker -> less range
+    const ambient = blackoutTimer>0 ? 0.6 : (0.8 + 0.2*lightLevel);
     const baseRange = enemy.baseRange * ambient * (player.flashlight ? 1.15 : 1.0);
     const facing = enemyFacing(enemy);
     return canSeeCone(enemy, player, facing, enemy.fov, baseRange);
@@ -293,12 +280,35 @@
   function nearLocker(){ return nearThing(lockers, 26); }
   function nearTerminal(){ return nearThing(terminals, 28); }
   function nearNoiseMaker(){ return nearThing(noiseMakers, 28); }
-  function nearBarricade(){ return nearThing(barricades, 28); }
-  function nearOfficeDoor(){ return dist(player, officeDoor)<28; }
+  function nearDoor(){ return nearThing(doors, 28); }
+  function nearExitDoor(){ return dist(player, exitDoor)<28; }
+  function nearKey(){ return nearThing(keys, 20); }
 
   function tryInteract(){
     if(player.hidden){ player.hidden=false; player.flashlight=false; uiHidden.textContent='No'; return; }
     
+    // Doors
+    const door = nearDoor();
+    if(door){
+      if(door.locked){
+        if(!codePromptActive){
+          codePromptActive=true;
+          activeDoor = door;
+          codePrompt.style.display = 'flex';
+          codeInput.value = '';
+          codeInput.focus();
+        }
+      } else {
+        door.open = !door.open;
+        if(door.open) {
+          MAP[door.r][door.c] = 0; // change door to floor for collision
+        } else {
+          MAP[door.r][door.c] = 3;
+        }
+      }
+      return;
+    }
+
     // Terminals
     const term = nearTerminal();
     if(term){ camerasDisabledTimer = 60*30; uiCams.textContent = 'Offline'; return; }
@@ -307,59 +317,82 @@
     const locker = nearLocker();
     if(locker){ player.hidden=true; player.vx=player.vy=0; player.flashlight=false; uiHidden.textContent='Yes'; return; }
 
-    // Barricades
-    const bar = nearBarricade();
-    if(bar && !bar.broken){
-      bar.broken = true;
-      MAP[bar.r][bar.c] = 0; // Change to floor tile
-      // Noise
-      enemy.alert = true;
-      enemy.target = {x: player.x, y: player.y};
-      enemy.cooldown = 480; // Longer cooldown for loud noise
-      return;
-    }
-
     // Noise makers
     const nm = nearNoiseMaker();
     if(nm && !nm.used){
       nm.used = true;
       enemy.alert = true;
       enemy.target = {x: nm.x, y: nm.y};
-      enemy.cooldown = 360; // 6 seconds
+      enemy.cooldown = 360;
       return;
     }
 
-    const heldKeys = player.inventory.filter(item => item.type === 'key').length;
-    if(heldKeys>=keysToCollect && nearOfficeDoor()){ won=true; endGame(); return; }
+    const key = nearKey();
+    if(key && !key.taken){
+      key.taken = true;
+      keysCollected++;
+      return;
+    }
+
+    if(keysCollected >= keysToCollect && nearExitDoor()){ won=true; endGame(); return; }
   }
 
-  function randomizeKeys(){
-    // Shuffle the key spawn points
-    for (let i = keySpawnPoints.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [keySpawnPoints[i], keySpawnPoints[j]] = [keySpawnPoints[j], keySpawnPoints[i]];
-    }
-
-    // Assign the first 4 points as keys and the rest as floor
+  function setupMapElements(){
+    MAP = JSON.parse(JSON.stringify(MAP_BASE));
+    doors = [];
+    chalkboards = [];
     keys = [];
-    for(let i=0; i<keySpawnPoints.length; i++){
-      const p = keySpawnPoints[i];
-      MAP[p.r][p.c] = (i < keysToCollect) ? 4 : 0;
-      if (i < keysToCollect) {
-        keys.push({x:p.x, y:p.y, taken:false});
+    lockers = [];
+    terminals = [];
+    lightSources = [];
+    noiseMakers = [];
+
+    // Find all dynamic elements
+    for(let r=0; r<ROWS; r++){
+      for(let c=0; c<COLS; c++){
+        const tile = MAP[r][c];
+        const obj = {x: c*TILE+TILE/2, y: r*TILE+TILE/2, r, c};
+        if(tile === 3){
+          obj.open = false;
+          obj.locked = true;
+          obj.code = Math.floor(10 + Math.random()*90); // two-digit code
+          doors.push(obj);
+        } else if(tile === 5){
+          lockers.push(obj);
+        } else if(tile === 6){
+          terminals.push(obj);
+        } else if(tile === 8){
+          obj.used = false;
+          noiseMakers.push(obj);
+        }
       }
     }
+    // Set up Chalkboards and Keys
+    const codeLocations = findAllTiles(9).slice(0, doors.length);
+    const keyLocations = findAllTiles(4);
+    for(let i=0; i<doors.length; i++){
+      const door = doors[i];
+      const chalkboard = codeLocations[i];
+      chalkboard.code = door.code;
+      chalkboards.push(chalkboard);
+    }
+    for(let i=0; i<keysToCollect; i++){
+      keys.push({...keyLocations[i], taken: false});
+    }
+
+    // Static lights
+    lightSources.push({x: TILE*25, y: TILE*4, radius: 200});
+    lightSources.push({x: TILE*12, y: TILE*18, radius: 240});
+    lightSources.push({x: TILE*35, y: TILE*15, radius: 220});
+    lightSources.push({x: TILE*5, y: TILE*10, radius: 180});
+    lightSources.push({x: TILE*20, y: TILE*20, radius: 200});
   }
 
   function reset(){
-    randomizeKeys();
-    player.x = spawn.x; player.y = spawn.y; player.stamina=100; player.flashlight=false; player.hidden=false; player.inventory=[];
+    setupMapElements();
+    player.x = spawn.x; player.y = spawn.y; player.stamina=100; player.flashlight=false; player.hidden=false;
+    keysCollected = 0;
     
-    // Reset collectibles, distractions, and barricades
-    pennantSpawnPoints.forEach(p => p.taken = false);
-    noiseMakers.forEach(nm => nm.used = false);
-    barricades.forEach(bar => { bar.broken = false; MAP[bar.r][bar.c] = 10; });
-
     enemy.x = spawn.x+200; enemy.y = spawn.y+40; enemy.alert=false; enemy.target=null; enemy.patrolIndex=0; enemy.cooldown=0; enemy.fakeoutTimer=0;
     camAlertTimer = 0; alertEl.style.display='none';
     camerasDisabledTimer = 0; uiCams.textContent='Online';
@@ -375,14 +408,32 @@
   changelogBtn.onclick = () => { changelogPopup.style.display = 'flex'; };
   closeChangelogBtn.onclick = () => { changelogPopup.style.display = 'none'; };
 
+  // Code prompt interaction
+  submitCodeBtn.onclick = () => {
+    const enteredCode = parseInt(codeInput.value, 10);
+    if(activeDoor && enteredCode === activeDoor.code){
+      activeDoor.locked = false;
+      activeDoor.open = true;
+      MAP[activeDoor.r][activeDoor.c] = 0;
+    }
+    codePromptActive = false;
+    codePrompt.style.display = 'none';
+  };
+  cancelCodeBtn.onclick = () => {
+    codePromptActive = false;
+    codePrompt.style.display = 'none';
+  };
+  codeInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      submitCodeBtn.click();
+    }
+  });
+
   // Start menu shown initially
   overlay.style.display='flex';
 
   function update(){
-    // ALWAYS schedule next frame so the loop keeps running
     requestAnimationFrame(update);
-
-    // Camera follow
     cam.x = clamp(player.x - W/2, 0, COLS*TILE - W);
     cam.y = clamp(player.y - H/2, 0, ROWS*TILE - H);
 
@@ -395,64 +446,39 @@
       else { lightLevel = 1; if(Math.random()<0.001) flickerTimer = 40; if(Math.random()<0.0003) blackoutTimer = 180; }
     }
 
-    // --- Input & Interaction ---
     if(input.interact){ tryInteract(); input.interact=false; }
 
-    // --- Player movement ---
     if(!player.hidden){
       const spd = (input.sprint && player.stamina>0) ? player.sprint : player.speed;
       player.vx = (input.right - input.left) * spd;
       player.vy = (input.down - input.up) * spd;
       if(player.vx && player.vy){ player.vx *= 0.7071; player.vy *= 0.7071; }
-      // stamina drain/regain
       const moving = (player.vx||player.vy);
       if(input.sprint && moving) player.stamina = Math.max(0, player.stamina - 0.25);
       else player.stamina = Math.min(100, player.stamina + 0.15);
       collideCircleWalls(player);
       player.x += player.vx; player.y += player.vy;
       if(moving) player.facing = Math.atan2(player.vy, player.vx);
-
-      // noise from sprinting
       if(input.sprint && moving){
         const d = dist(player, enemy);
         if(d < HEAR_RANGE){ enemy.alert = true; enemy.target = {x:player.x, y:player.y}; enemy.cooldown = 180; }
       }
     } else {
-      // hidden: recover stamina faster
       player.stamina = Math.min(100, player.stamina + 0.4);
-    }
-
-    // collect keys
-    for(const k of keys){ 
-      if(!k.taken && dist(player,k)<18){ 
-        k.taken=true; 
-        player.inventory.push({type: 'key', id: k.x + k.y}); 
-      } 
-    }
-
-    // collect pennants
-    for(const p of pennantSpawnPoints){ 
-      if(!p.taken && dist(player,p)<18){ 
-        p.taken=true; 
-        player.inventory.push({type: 'pennant', id: p.x + p.y}); 
-      } 
     }
 
     // --- Cameras ---
     if(camerasDisabledTimer>0){ camerasDisabledTimer--; if(camerasDisabledTimer===0) uiCams.textContent='Online'; }
     for(const camObj of cameras){
-      // sweep
       camObj.angle += camObj.speed * camObj.dir;
       if(camObj.angle>camObj.max){ camObj.angle=camObj.max; camObj.dir*=-1; }
       if(camObj.angle<camObj.min){ camObj.angle=camObj.min; camObj.dir*=-1; }
-
       if(player.hidden) continue;
       if(camerasDisabledTimer>0) continue;
       if(canSeeCone(camObj, player, camObj.angle, camObj.fov, camObj.range)){
-        camObj.cooldown = 180; // 3s memory
-        camAlertTimer = 60; // show UI alert
+        camObj.cooldown = 180;
+        camAlertTimer = 60;
         alertEl.style.display='block';
-        // ping enemy to investigate
         enemy.alert = true;
         enemy.target = {x: player.x, y: player.y};
         enemy.cooldown = 300;
@@ -462,12 +488,10 @@
 
     // --- Enemy AI ---
     const seen = !player.hidden && canSeeEnemy();
-
-    // trailing fake-out: if player hangs near behind enemy
     if(!enemy.alert && !player.hidden){
       const toPlayer = angle(enemy, player);
       const face = enemyFacing(enemy);
-      const behind = Math.abs(normalizeAngle(toPlayer - face)) > Math.PI*0.7; // roughly behind
+      const behind = Math.abs(normalizeAngle(toPlayer - face)) > Math.PI*0.7;
       if(behind && dist(player, enemy) < 140){ if(enemy.fakeoutTimer<=0) enemy.fakeoutTimer = 60; }
     }
 
@@ -481,7 +505,6 @@
       enemy.y += Math.sin(ang) * spd;
       if(dist(enemy, enemy.target)<12) enemy.alert=false;
     } else {
-      // fake-out burst toward previous waypoint
       if(enemy.fakeoutTimer>0){
         enemy.fakeoutTimer--;
         const prevIndex = (enemy.patrolIndex - 1 + enemy.patrol.length) % enemy.patrol.length;
@@ -496,41 +519,23 @@
         enemy.x += Math.cos(ang) * enemy.speed;
         enemy.y += Math.sin(ang) * enemy.speed;
         if(dist(enemy, wp)<12) enemy.patrolIndex = (enemy.patrolIndex+1) % enemy.patrol.length;
-        // occasional random turn-about
         if(Math.random()<0.0015){ enemy.fakeoutTimer = 50; }
       }
     }
 
-    // collision
     enemy.vx = enemy.vy = 0;
     collideCircleWalls(enemy);
-
-    // caught? (cannot be caught while hidden)
     if(!player.hidden && dist(player, enemy) < 16){ gameOver = true; endGame(); }
 
-    // UI
     updateUI();
-
     draw();
   }
 
   function updateUI() {
+    uiKeys.textContent = keysCollected;
     uiStam.textContent = `${Math.round(player.stamina)}`;
     uiHidden.textContent = player.hidden ? 'Yes' : 'No';
     if(camerasDisabledTimer>0) uiCams.textContent = `Offline ${Math.ceil(camerasDisabledTimer/60)}s`;
-
-    // Clear and redraw inventory
-    uiInventory.innerHTML = '';
-    player.inventory.forEach(item => {
-      const itemDiv = document.createElement('div');
-      itemDiv.classList.add('inv-item');
-      if (item.type === 'key') {
-        itemDiv.classList.add('key-icon');
-      } else if (item.type === 'pennant') {
-        itemDiv.classList.add('pennant-icon');
-      }
-      uiInventory.appendChild(itemDiv);
-    });
   }
 
   function endGame(){
@@ -538,21 +543,17 @@
     overlay.style.display='flex';
     retryBtn.style.display='inline-block';
     playBtn.style.display='none';
-    titleEl.textContent = won ? "You Escaped the Principal's Office" : 'Caught by Mr. Johnson';
+    titleEl.textContent = won ? "You Escaped Westpine Academy" : 'Caught by Mr. Johnson';
     msgEl.textContent = won
-      ? 'Door unlocks. You step into the night. Westpine remains… hungry.'
+      ? 'You unlock the front door and step outside. The cool night air is a welcome relief.'
       : 'Detention… forever. Tips: hide in lockers (E), hack terminals, respect camera sweeps, sprint in bursts, and watch for fake-outs.';
   }
 
   function draw(){
-    // clear
     ctx.fillStyle = '#07070b';
     ctx.fillRect(0,0,W,H);
 
-    // darkness overlay based on light level
     const dark = clamp(0.55 + (1-lightLevel)*0.6, 0, 0.95);
-
-    // visible tiles only
     const c0 = Math.max(0, Math.floor(cam.x / TILE) - 1);
     const r0 = Math.max(0, Math.floor(cam.y / TILE) - 1);
     const c1 = Math.min(COLS-1, Math.ceil((cam.x+W) / TILE) + 1);
@@ -565,38 +566,35 @@
         if(t===1){
           ctx.fillStyle = '#161622';
           ctx.fillRect(x,y,TILE,TILE);
-        } else if (t===10) { // Barricade
-          const isBroken = barricades.find(b => b.r === r && b.c === c)?.broken;
-          ctx.fillStyle = isBroken ? '#0f0f18' : '#332929';
-          ctx.fillRect(x,y,TILE,TILE);
-          if (!isBroken) {
-            ctx.fillStyle = '#553c3c';
-            ctx.fillRect(x,y, TILE, TILE/3);
-            ctx.fillRect(x,y+TILE*2/3, TILE, TILE/3);
-          }
         } else {
           ctx.fillStyle = '#0f0f18';
           ctx.fillRect(x,y,TILE,TILE);
           ctx.strokeStyle = 'rgba(255,255,255,0.03)';
           ctx.strokeRect(x+0.5,y+0.5,TILE-1,TILE-1);
         }
-        if(t===5){ // lockers
+        if(t===3){
+          const door = doors.find(d => d.r === r && d.c === c);
+          if(!door.open){
+            ctx.fillStyle = door.locked ? '#404070' : '#4a73c2';
+            ctx.fillRect(x,y,TILE,TILE);
+          }
+        }
+        if(t===5){
           ctx.fillStyle = '#1b3b6f';
           ctx.fillRect(x+4,y+4,TILE-8,TILE-8);
           ctx.fillStyle = '#8bb5ff';
-          ctx.fillRect(x+TILE-10,y+TILE/2-3,6,6); // handle
+          ctx.fillRect(x+TILE-10,y+TILE/2-3,6,6);
         }
-        if(t===6){ // terminals
+        if(t===6){
           ctx.fillStyle = camerasDisabledTimer>0 ? '#2a823a' : '#4062b2';
           ctx.fillRect(x+6,y+6,TILE-12,TILE-12);
           ctx.fillStyle = '#0b0b10'; ctx.fillRect(x+10,y+10,TILE-20,TILE-20);
         }
-        if(t===7){ // principal door
-          const heldKeys = player.inventory.filter(item => item.type === 'key').length;
-          ctx.fillStyle = heldKeys>=keysToCollect ? '#3fa370' : '#704040';
+        if(t===7){
+          ctx.fillStyle = keysCollected>=keysToCollect ? '#3fa370' : '#704040';
           ctx.fillRect(x+2,y+2,TILE-4,TILE-4);
         }
-        if(t===8){ // Noise Maker
+        if(t===8){
           const nm = noiseMakers.find(n => n.r === r && n.c === c);
           if (nm && !nm.used) {
             ctx.fillStyle = '#e55a5a';
@@ -605,28 +603,31 @@
             ctx.fill();
           }
         }
+        if(t===9){
+          ctx.fillStyle = '#222233';
+          ctx.fillRect(x+4,y+4,TILE-8,TILE-8);
+          const cb = chalkboards.find(b => b.r === r && b.c === c);
+          if(cb){
+            ctx.fillStyle = '#b3e8b3';
+            ctx.font = '10px monospace';
+            ctx.fillText(`Code: ${cb.code}`, x+8, y+16);
+          }
+        }
       }
     }
 
-    // exit door highlight text could be added here
-
-    // keys
+    // Keys
     for(const k of keys){ if(k.taken) continue; const sx=k.x - cam.x, sy=k.y - cam.y; if(sx<-20||sy<-20||sx>W+20||sy>H+20) continue; ctx.fillStyle='#e8c547'; ctx.beginPath(); ctx.arc(sx,sy,6,0,Math.PI*2); ctx.fill(); }
 
-    // pennants
-    for(const p of pennantSpawnPoints){ if(p.taken) continue; const sx=p.x-cam.x, sy=p.y-cam.y; ctx.fillStyle='#6b91c9'; ctx.beginPath(); ctx.moveTo(sx,sy-8); ctx.lineTo(sx+10,sy); ctx.lineTo(sx,sy+8); ctx.closePath(); ctx.fill(); }
-
-    // cameras fov & bodies
+    // Cameras fov & bodies
     for(const camObj of cameras){
       const sx=camObj.x - cam.x, sy=camObj.y - cam.y;
-      // beam
       if(camerasDisabledTimer<=0){
         ctx.save();
         ctx.fillStyle = 'rgba(80,140,255,0.08)';
         drawCone(sx, sy, camObj.angle, camObj.fov, camObj.range);
         ctx.restore();
       }
-      // camera body
       ctx.fillStyle = camerasDisabledTimer>0 ? '#2a823a' : '#4a73c2';
       ctx.beginPath();
       ctx.moveTo(sx+Math.cos(camObj.angle)*10, sy+Math.sin(camObj.angle)*10);
@@ -634,11 +635,27 @@
       ctx.lineTo(sx+Math.cos(camObj.angle-0.8)*10, sy+Math.sin(camObj.angle-0.8)*10);
       ctx.closePath();
       ctx.fill();
-      if(camObj.cooldown>0 && camerasDisabledTimer<=0){ // red LED while alarmed
+      if(camObj.cooldown>0 && camerasDisabledTimer<=0){
         ctx.fillStyle = '#ff5d5d';
         ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI*2); ctx.fill();
       }
     }
+
+    // Light sources
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for(const light of lightSources){
+      const sx=light.x - cam.x, sy=light.y - cam.y;
+      const lightRange = light.radius + Math.sin(Date.now()/500)*5;
+      const gradient = ctx.createRadialGradient(sx, sy, 0, sx, sy, lightRange);
+      gradient.addColorStop(0, 'rgba(255, 255, 200, 0.2)');
+      gradient.addColorStop(1, 'rgba(255, 255, 200, 0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(sx, sy, lightRange, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
 
     // enemy FOV
     const face = enemyFacing(enemy);
@@ -661,35 +678,28 @@
       ctx.restore();
     }
 
-    // apply darkness overlay
     ctx.fillStyle = `rgba(0,0,0,${dark})`;
     ctx.fillRect(0,0,W,H);
 
     // entities
-    // player
     if(!player.hidden){
       ctx.fillStyle = '#8bb5ff';
       ctx.beginPath(); ctx.arc(player.x - cam.x, player.y - cam.y, player.r, 0, Math.PI*2); ctx.fill();
     }
 
-    // Mr. Johnson — stylized black, bald, beard + mustache
-    // head
-    ctx.fillStyle = '#4b3424'; // deep brown skin tone
+    ctx.fillStyle = '#4b3424';
     ctx.beginPath(); ctx.arc(enemy.x - cam.x, enemy.y - cam.y, enemy.r+1, 0, Math.PI*2); ctx.fill();
-    // beard (lower semi-circle)
     ctx.fillStyle = '#141414';
     ctx.beginPath();
     ctx.arc(enemy.x - cam.x, enemy.y - cam.y + 2, enemy.r-2, Math.PI*0.15, Math.PI-0.15);
     ctx.lineTo(enemy.x - cam.x, enemy.y - cam.y + 3);
     ctx.closePath(); ctx.fill();
-    // mustache (thin arc)
     ctx.strokeStyle = '#0d0d0d';
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(enemy.x - cam.x, enemy.y - cam.y + 1, enemy.r-6, Math.PI*0.05, Math.PI-0.05);
     ctx.stroke();
 
-    // alert marker
     if(enemy.alert){
       ctx.fillStyle = '#ff5d5d';
       ctx.beginPath(); ctx.arc(enemy.x - cam.x, enemy.y - cam.y - enemy.r - 10, 4, 0, Math.PI*2); ctx.fill();
@@ -704,7 +714,6 @@
     ctx.fill();
   }
 
-  // Kick off the loop immediately; it will keep running even while paused
   requestAnimationFrame(update);
   </script>
 </body>
