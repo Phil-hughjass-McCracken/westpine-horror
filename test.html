@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Westpine Night — 2.1</title>
+  <title>Westpine Night — 4.2</title>
   <style>
     html, body { height: 100%; margin: 0; background:#0a0a0f; color:#e6e6f0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; }
     #ui { position: fixed; inset: 0 0 auto 0; display:flex; gap:12px; align-items:center; padding:10px 14px; background: linear-gradient(180deg, rgba(10,10,15,.9), rgba(10,10,15,.25)); backdrop-filter: blur(4px); z-index: 10; }
@@ -39,7 +39,7 @@
   <canvas id="game" width="960" height="576"></canvas>
   <div id="overlay">
     <div class="card">
-      <h1 id="title">Westpine Night 4.1</h1>
+      <h1 id="title">Westpine Night 4.2</h1>
       <p id="message">New: Find 8 keys hidden in code-locked classrooms. Find codes on chalkboards to open doors. Hack camera terminals and hide from Mr. Johnson to escape.</p>
       <div>
         <button id="play">Play</button>
@@ -54,21 +54,25 @@
     <div id="changelog-content">
       <h2>Changelog</h2>
       <ul>
-        <li>**v2.1 (August 2025)**
+        <li>**v4.2 (August 2025)**
+          <ul>
+            <li>**Fix:** Corrected the main "Play" and "Retry" buttons to function correctly.</li>
+          </ul>
+        </li>
+        <li>**v4.1 (August 2025)**
           <ul>
             <li>**Bug Fix:** Corrected the issue where the "Play" button didn't start the game.</li>
             <li>**UI Fix:** The keys collected counter in the UI is now working correctly.</li>
             <li>**Minor Fixes:** Corrected a few other small bugs and made gameplay more stable.</li>
+          </ul>
+        </li>
+        <li>**v4.0 (August 2025)**
+          <ul>
             <li>**The Mission:** The goal is to collect **8 keys** and escape through the front door.</li>
             <li>**Code Puzzles:** Classrooms are now locked. You must find a two-digit code on a **chalkboard** in another room to unlock them.</li>
             <li>**Interactive Doors:** Doors can now be opened and closed with the **'E' key**.</li>
             <li>**Light Sources:** Added specific points of light to the map, creating brightly lit and dark areas.</li>
-            <li>**Code Puzzle:** The front door is locked with a four-digit keypad. The code is on a **chalkboard** in a random classroom.</li>
-          </ul>
-        </li>
-        <li>**v1.0 (August 20th 2025)**
-          <ul>
-            <li>Public release with smaller map, Mr. Johnson AI</li>
+            <li>**Removed:** The inventory, collectibles, and barricades have all been removed.</li>
           </ul>
         </li>
       </ul>
@@ -182,6 +186,7 @@
   let terminals = [];
   let lightSources = [];
   let noiseMakers = [];
+  let cameras = [];
 
   let codePromptActive = false;
   let activeDoor = null;
@@ -335,6 +340,7 @@
     terminals = [];
     lightSources = [];
     noiseMakers = [];
+    cameras = [];
 
     // Find all dynamic elements
     for(let r=0; r<ROWS; r++){
@@ -390,13 +396,13 @@
     playBtn.style.display='inline-block';
   }
 
-  playBtn.onclick = () => { reset(); };
-  retryBtn.onclick = () => { reset(); };
-  changelogBtn.onclick = () => { changelogPopup.style.display = 'flex'; };
-  closeChangelogBtn.onclick = () => { changelogPopup.style.display = 'none'; };
+  playBtn.addEventListener('click', () => { reset(); });
+  retryBtn.addEventListener('click', () => { reset(); });
+  changelogBtn.addEventListener('click', () => { changelogPopup.style.display = 'flex'; });
+  closeChangelogBtn.addEventListener('click', () => { changelogPopup.style.display = 'none'; });
 
   // Code prompt interaction
-  submitCodeBtn.onclick = () => {
+  submitCodeBtn.addEventListener('click', () => {
     const enteredCode = parseInt(codeInput.value, 10);
     if(activeDoor && enteredCode === activeDoor.code){
       activeDoor.locked = false;
@@ -405,11 +411,11 @@
     }
     codePromptActive = false;
     codePrompt.style.display = 'none';
-  };
-  cancelCodeBtn.onclick = () => {
+  });
+  cancelCodeBtn.addEventListener('click', () => {
     codePromptActive = false;
     codePrompt.style.display = 'none';
-  };
+  });
   codeInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       submitCodeBtn.click();
