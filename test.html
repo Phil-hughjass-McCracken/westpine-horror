@@ -23,6 +23,10 @@
     #changelog-content h2 { margin-top:0; }
     #changelog-content ul { padding-left:20px; }
     #changelog-content li { margin-bottom:8px; }
+    #inventory { display:flex; gap:6px; align-items:center; }
+    .inv-item { width:20px; height:20px; border:1px solid #2b2b38; border-radius:4px; }
+    .key-icon { background:#e8c547; }
+    .pennant-icon { background:#6b91c9; }
   </style>
 </head>
 <body>
@@ -31,7 +35,7 @@
     <div class="pill">Shift: Sprint (noise!)</div>
     <div class="pill">F: Flashlight</div>
     <div class="pill">E: Interact/Hide/Hack</div>
-    <div class="pill right inv">Keys: <span id="keys">0</span>/4 · Pennants: <span id="pennants">0</span>/5 · Stamina: <span id="stamina">100</span>% · Hidden: <span id="hidden">No</span> · Cams: <span id="cams">Online</span></div>
+    <div class="pill right inv">Inventory: <span id="inventory"></span> · Stamina: <span id="stamina">100</span>% · Hidden: <span id="hidden">No</span> · Cams: <span id="cams">Online</span></div>
   </div>
   <canvas id="game" width="960" height="576"></canvas>
   <div id="overlay">
@@ -51,6 +55,11 @@
     <div id="changelog-content">
       <h2>Changelog</h2>
       <ul>
+        <li>**v2.2 (September 2025)**
+          <ul>
+            <li>**Inventory System:** Keys and pennants you collect now appear in your inventory in the top-right corner.</li>
+          </ul>
+        </li>
         <li>**v2.1 (August 2025)**
           <ul>
             <li>**Randomized Key Spawns:** Keys now spawn in random locations, making each playthrough a new challenge.</li>
@@ -76,7 +85,7 @@
   </div>
 
   <script>
-  // --- Westpine Night 2.1: scrolling-map stealth prototype (single file, no assets) ---
+  // --- Westpine Night 2.2: scrolling-map stealth prototype (single file, no assets) ---
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
@@ -86,6 +95,7 @@
   const uiStam = document.getElementById('stamina');
   const uiHidden = document.getElementById('hidden');
   const uiCams = document.getElementById('cams');
+  const uiInventory = document.getElementById('inventory');
   const overlay = document.getElementById('overlay');
   const titleEl = document.getElementById('title');
   const msgEl = document.getElementById('message');
@@ -146,7 +156,7 @@
   const officeDoor = findAllTiles(7)[0];
 
   // Entities
-  const player = { x: spawn.x, y: spawn.y, r: 12, speed: 2.1, sprint: 3.3, vx:0, vy:0, stamina: 100, flashlight:false, facing:0, hidden:false };
+  const player = { x: spawn.x, y: spawn.y, r: 12, speed: 2.1, sprint: 3.3, vx:0, vy:0, stamina: 100, flashlight:false, facing:0, hidden:false, inventory: [] };
   const enemy = { x: spawn.x+200, y: spawn.y+40, r:14, speed:1.85, fov: Math.PI/4.5, baseRange: 260, alert:false, target:null, patrol:[], patrolIndex:0, cooldown:0, fakeoutTimer:0 };
 
   // Camera scroll
@@ -182,8 +192,6 @@
 
   // Keys spawn (tile==4)
   let keys = [];
-  let heldKeys = 0;
-  let heldPennants = 0;
 
   // Lockers (tile==5)
   let lockers = [];
@@ -321,6 +329,7 @@
       return;
     }
 
+    const heldKeys = player.inventory.filter(item => item.type === 'key').length;
     if(heldKeys>=keysToCollect && nearOfficeDoor()){ won=true; endGame(); return; }
   }
 
@@ -344,7 +353,7 @@
 
   function reset(){
     randomizeKeys();
-    player.x = spawn.x; player.y = spawn.y; player.stamina=100; player.flashlight=false; player.hidden=false; heldKeys=0; heldPennants=0;
+    player.x = spawn.x; player.y = spawn.y; player.stamina=100; player.flashlight=false; player.hidden=false; player.inventory=[];
     
     // Reset collectibles, distractions, and barricades
     pennantSpawnPoints.forEach(p => p.taken = false);
@@ -414,10 +423,20 @@
     }
 
     // collect keys
-    for(const k of keys){ if(!k.taken && dist(player,k)<18){ k.taken=true; heldKeys++; } }
+    for(const k of keys){ 
+      if(!k.taken && dist(player,k)<18){ 
+        k.taken=true; 
+        player.inventory.push({type: 'key', id: k.x + k.y}); 
+      } 
+    }
 
     // collect pennants
-    for(const p of pennantSpawnPoints){ if(!p.taken && dist(player,p)<18){ p.taken=true; heldPennants++; } }
+    for(const p of pennantSpawnPoints){ 
+      if(!p.taken && dist(player,p)<18){ 
+        p.taken=true; 
+        player.inventory.push({type: 'pennant', id: p.x + p.y}); 
+      } 
+    }
 
     // --- Cameras ---
     if(camerasDisabledTimer>0){ camerasDisabledTimer--; if(camerasDisabledTimer===0) uiCams.textContent='Online'; }
@@ -490,13 +509,28 @@
     if(!player.hidden && dist(player, enemy) < 16){ gameOver = true; endGame(); }
 
     // UI
-    uiKeys.textContent = `${heldKeys}`;
-    uiPennants.textContent = `${heldPennants}`;
+    updateUI();
+
+    draw();
+  }
+
+  function updateUI() {
     uiStam.textContent = `${Math.round(player.stamina)}`;
     uiHidden.textContent = player.hidden ? 'Yes' : 'No';
     if(camerasDisabledTimer>0) uiCams.textContent = `Offline ${Math.ceil(camerasDisabledTimer/60)}s`;
 
-    draw();
+    // Clear and redraw inventory
+    uiInventory.innerHTML = '';
+    player.inventory.forEach(item => {
+      const itemDiv = document.createElement('div');
+      itemDiv.classList.add('inv-item');
+      if (item.type === 'key') {
+        itemDiv.classList.add('key-icon');
+      } else if (item.type === 'pennant') {
+        itemDiv.classList.add('pennant-icon');
+      }
+      uiInventory.appendChild(itemDiv);
+    });
   }
 
   function endGame(){
@@ -558,6 +592,7 @@
           ctx.fillStyle = '#0b0b10'; ctx.fillRect(x+10,y+10,TILE-20,TILE-20);
         }
         if(t===7){ // principal door
+          const heldKeys = player.inventory.filter(item => item.type === 'key').length;
           ctx.fillStyle = heldKeys>=keysToCollect ? '#3fa370' : '#704040';
           ctx.fillRect(x+2,y+2,TILE-4,TILE-4);
         }
