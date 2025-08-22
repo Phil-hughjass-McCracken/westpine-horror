@@ -2,101 +2,105 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Westpine Night — 2.1</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <title>Westpine Night — Mobile + 8 Keys</title>
   <style>
-    html, body { height: 100%; margin: 0; background:#0a0a0f; color:#e6e6f0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; }
-    #ui { position: fixed; inset: 0 0 auto 0; display:flex; gap:12px; align-items:center; padding:10px 14px; background: linear-gradient(180deg, rgba(10,10,15,.9), rgba(10,10,15,.25)); backdrop-filter: blur(4px); z-index: 10; }
-    #ui .pill { padding:4px 10px; border-radius:14px; background:#1b1b25; border:1px solid #2b2b38; box-shadow: inset 0 0 0 1px rgba(255,255,255,.03); font-size: 14px; }
+    :root { --bg:#0a0a0f; --fg:#e6e6f0; --card:#121219; --line:#2b2b38; --pill:#1b1b25; }
+    html, body { height:100%; margin:0; background:var(--bg); color:var(--fg);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; }
+    #ui { position:fixed; inset:0 0 auto 0; display:flex; gap:12px; align-items:center;
+      padding:10px 14px; background:linear-gradient(180deg, rgba(10,10,15,.9), rgba(10,10,15,.25));
+      backdrop-filter: blur(4px); z-index:10; }
+    #ui .pill { padding:4px 10px; border-radius:14px; background:var(--pill); border:1px solid var(--line);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.03); font-size:14px; white-space:nowrap; }
     #ui .right { margin-left:auto; opacity:.95 }
     #ui .inv { display:flex; gap:8px; align-items:center; }
-    #game { display:block; margin:0 auto; image-rendering: pixelated; }
-    #overlay { position: fixed; inset:0; display:none; align-items:center; justify-content:center; background: rgba(0,0,0,.8); z-index: 20; }
-    #overlay .card { background:#121219; border:1px solid #2b2b38; border-radius:16px; padding:20px; width:min(680px, 92vw); text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,.6); }
+    #game { display:block; margin:0 auto; image-rendering: pixelated; touch-action:none }
+    #overlay { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.8); z-index:20; }
+    #overlay .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px;
+      width:min(720px,92vw); text-align:center; box-shadow:0 10px 30px rgba(0,0,0,.6); }
     #overlay h1 { margin:0 0 8px; font-size:28px; }
     #overlay p { margin:8px 0 16px; line-height:1.5 }
     #overlay button { background:#2b2bff; border:0; color:white; padding:10px 16px; border-radius:10px; cursor:pointer; font-weight:600; }
-    #overlay button.secondary { background:#1b1b25; border:1px solid #2b2b38; margin-left:8px; }
-    #alert { position: fixed; right:12px; bottom:12px; background:#3a0d0d; color:#ffb3b3; padding:8px 12px; border:1px solid #5c1717; border-radius:10px; display:none; font-weight:700; z-index: 15; }
-    #changelog-popup { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; justify-content:center; align-items:center; z-index: 30; }
-    #changelog-content { background:#121219; border:1px solid #2b2b38; border-radius:16px; padding:20px; width:min(680px, 92vw); max-height:80vh; overflow-y:auto; text-align:left; box-shadow: 0 10px 30px rgba(0,0,0,.6); }
-    #changelog-content h2 { margin-top:0; }
-    #changelog-content ul { padding-left:20px; }
-    #changelog-content li { margin-bottom:8px; }
-    #code-prompt { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; justify-content:center; align-items:center; z-index: 40; }
-    #code-card { background:#121219; border:1px solid #2b2b38; border-radius:16px; padding:20px; text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,.6); }
-    #code-input { width:120px; text-align:center; font-size:24px; letter-spacing:4px; padding:8px; background:#0b0b10; border:1px solid #2b2b38; color:#e6e6f0; }
+    #overlay button.secondary { background:#1b1b25; border:1px solid var(--line); margin-left:8px; }
+    #alert { position:fixed; right:12px; bottom:12px; background:#3a0d0d; color:#ffb3b3; padding:8px 12px;
+      border:1px solid #5c1717; border-radius:10px; display:none; font-weight:700; z-index:15; }
+
+    /* Mobile Controls */
+    #touch { position:fixed; inset:auto 0 0 0; display:flex; justify-content:space-between; padding:14px; gap:14px; z-index:12; pointer-events:none; }
+    .stick { width:140px; height:140px; border-radius:50%; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08);
+      position:relative; pointer-events:auto; touch-action:none; }
+    .knob { position:absolute; left:50%; top:50%; width:70px; height:70px; transform:translate(-50%,-50%);
+      border-radius:50%; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); }
+    .btncol { display:flex; flex-direction:column; gap:12px; pointer-events:auto; }
+    .btn { min-width:92px; padding:12px 14px; border-radius:14px; border:1px solid var(--line); background:rgba(255,255,255,.03);
+      color:var(--fg); font-weight:700; text-align:center; user-select:none; touch-action:manipulation; }
+    .btn.active { background:#2b2bff; border-color:#2b2bff; }
+    .btn.small { padding:10px 12px; min-width:78px; }
+    @media (min-width:1000px){ /* desktop: smaller touch overlay */
+      .stick { width:120px;height:120px; } .knob{ width:60px;height:60px; }
+      .btn{ min-width:88px; }
+    }
   </style>
 </head>
 <body>
   <div id="ui">
-    <div class="pill">WASD/Arrows: Move</div>
-    <div class="pill">Shift: Sprint (noise!)</div>
-    <div class="pill">F: Flashlight</div>
-    <div class="pill">E: Interact/Hide/Open Door</div>
-    <div class="pill right inv">Keys: <span id="keys">0</span>/8 · Stamina: <span id="stamina">100</span>% · Hidden: <span id="hidden">No</span> · Cams: <span id="cams">Online</span></div>
-  </div>
-  <canvas id="game" width="960" height="576"></canvas>
-  <div id="overlay">
-    <div class="card">
-      <h1 id="title">Westpine Night 2.1</h1>
-      <p id="message">New: Find 8 keys hidden in code-locked classrooms. Find codes on chalkboards to open doors. Hack camera terminals and hide from Mr. Johnson to escape.</p>
-      <div>
-        <button id="play">Play</button>
-        <button id="retry" class="secondary" style="display:none">Retry</button>
-        <button id="changelog-btn" class="secondary">Changelog</button>
-      </div>
-    </div>
-  </div>
-  <div id="alert">ALERT: Camera spotted you!</div>
-  
-  <div id="changelog-popup">
-    <div id="changelog-content">
-      <h2>Changelog</h2>
-      <ul>
-        <li>**v4.2 (August 2025)**
-          <ul>
-            <li>**Fix:** Corrected the main "Play" and "Retry" buttons to function correctly.</li>
-          </ul>
-        </li>
-        <li>**v4.1 (August 2025)**
-          <ul>
-            <li>**Bug Fix:** Corrected the issue where the "Play" button didn't start the game.</li>
-            <li>**UI Fix:** The keys collected counter in the UI is now working correctly.</li>
-            <li>**Minor Fixes:** Corrected a few other small bugs and made gameplay more stable.</li>
-          </ul>
-        </li>
-        <li>**v4.0 (August 2025)**
-          <ul>
-            <li>**The Mission:** The goal is to collect **8 keys** and escape through the front door.</li>
-            <li>**Code Puzzles:** Classrooms are now locked. You must find a two-digit code on a **chalkboard** in another room to unlock them.</li>
-            <li>**Interactive Doors:** Doors can now be opened and closed with the **'E' key**.</li>
-            <li>**Light Sources:** Added specific points of light to the map, creating brightly lit and dark areas.</li>
-            <li>**Removed:** The inventory, collectibles, and barricades have all been removed.</li>
-          </ul>
-        </li>
-      </ul>
-      <button id="close-changelog" style="display:block; margin:20px auto 0;">Close</button>
+    <div class="pill">Move: WASD/Arrows or Joystick</div>
+    <div class="pill">Shift / Sprint Btn: Sprint (noise!)</div>
+    <div class="pill">F / Flash Btn: Flashlight</div>
+    <div class="pill">E / Interact Btn: Interact/Hide/Hack</div>
+    <div class="pill right inv">
+      Pieces: <span id="keys">0</span>/8 · MasterKey: <span id="mk">No</span> · Stamina: <span id="stamina">100</span>% · Hidden: <span id="hidden">No</span> · Cams: <span id="cams">Online</span>
     </div>
   </div>
 
-  <div id="code-prompt">
-    <div id="code-card">
-      <h2>Enter Code</h2>
-      <input type="number" id="code-input" maxlength="2" placeholder="__" />
-      <div style="margin-top:10px;">
-        <button id="submit-code">Unlock</button>
-        <button id="cancel-code" class="secondary">Cancel</button>
+  <canvas id="game" width="960" height="576"></canvas>
+
+  <div id="overlay">
+    <div class="card">
+      <h1 id="title">Westpine Night — Escape</h1>
+      <p id="message">
+        New: mobile joystick + buttons, randomized <b>8 key pieces</b> in classrooms, craft a <b>Master Key</b> at the <b>Exit Door</b>, then escape <b>outside</b>.<br/>
+        Hide in <b>lockers</b>, hack <b>camera terminals</b> to disable cams, mind sprint <b>noise</b>, and watch Mr. Johnson’s fake-outs.
+      </p>
+      <div>
+        <button id="play">Play</button>
+        <button id="retry" class="secondary" style="display:none">Retry</button>
       </div>
+    </div>
+  </div>
+
+  <div id="alert">ALERT: Camera spotted you!</div>
+
+  <!-- Touch controls -->
+  <div id="touch" aria-hidden="false">
+    <div class="stick" id="stick"><div class="knob" id="knob"></div></div>
+    <div class="btncol">
+      <div class="btn small" id="btnSprint">Sprint</div>
+      <div class="btn small" id="btnFlash">Flashlight</div>
+      <div class="btn small" id="btnInteract">Interact</div>
     </div>
   </div>
 
   <script>
+  // ================= CORE SETUP =================
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
+  const W0 = canvas.width, H0 = canvas.height; // internal resolution
 
+  // Responsive scale-to-fit (letterbox)
+  function fitCanvas(){
+    const w = window.innerWidth, h = window.innerHeight;
+    const scale = Math.min(w / W0, (h-0) / H0);
+    canvas.style.width = (W0 * scale) + 'px';
+    canvas.style.height = (H0 * scale) + 'px';
+  }
+  window.addEventListener('resize', fitCanvas, {passive:true});
+  fitCanvas();
+
+  // UI refs
   const uiKeys = document.getElementById('keys');
+  const uiMK = document.getElementById('mk');
   const uiStam = document.getElementById('stamina');
   const uiHidden = document.getElementById('hidden');
   const uiCams = document.getElementById('cams');
@@ -105,21 +109,22 @@
   const msgEl = document.getElementById('message');
   const playBtn = document.getElementById('play');
   const retryBtn = document.getElementById('retry');
-  const changelogBtn = document.getElementById('changelog-btn');
-  const changelogPopup = document.getElementById('changelog-popup');
-  const closeChangelogBtn = document.getElementById('close-changelog');
   const alertEl = document.getElementById('alert');
-  const codePrompt = document.getElementById('code-prompt');
-  const codeInput = document.getElementById('code-input');
-  const submitCodeBtn = document.getElementById('submit-code');
-  const cancelCodeBtn = document.getElementById('cancel-code');
+
+  // Touch controls refs
+  const stick = document.getElementById('stick');
+  const knob  = document.getElementById('knob');
+  const btnSprint = document.getElementById('btnSprint');
+  const btnFlash  = document.getElementById('btnFlash');
+  const btnInteract = document.getElementById('btnInteract');
 
   const TILE = 32;
 
-  // Map legend: 1=wall, 0=floor, 2=spawn, 3=door, 4=key, 5=locker, 6=camera terminal, 7=exit door, 8=noise maker, 9=chalkboard, 11=light source
-  const MAP_BASE = [
+  // Map legend: 1=wall, 0=floor, 2=spawn, 5=locker, 6=cam terminal, 7=Exit Door (outside)
+  // NOTE: old "4" tiles are ignored; keys are now fully randomized.
+  const MAP = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    [1,2,0,0,0,0,0,0,3,0,5,5,0,0,0,0,3,0,0,0,0,3,0,0,0,0,0,0,0,0,3,0,0,0,0,0,6,0,0,1],
+    [1,2,0,0,0,0,0,0,1,0,5,5,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,6,0,0,1],
     [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,1,0,1,1,0,1,0,1,0,0,0,1,1,0,1,0,1,1,0,0,1,0,0,1],
     [1,0,0,1,1,0,5,0,0,0,1,1,0,0,5,0,1,0,0,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
     [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,5,0,1,0,1,0,0,1,0,0,0,1,0,0,0,0,5,1,0,0,1],
@@ -130,7 +135,7 @@
     [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
     [1,0,0,1,1,0,0,0,0,0,1,1,0,0,0,1,1,0,0,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
     [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,5,1,0,0,1],
-    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,1,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
+    [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,1,1,0,0,0,1,0,1,1,0,0,1,0,7,1],
     [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1],
     [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
     [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
@@ -143,32 +148,38 @@
     [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,1,0,1,0,1,1,0,0,0,1,0,1,1,0,0,1,0,0,1],
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
   ];
-  let MAP = JSON.parse(JSON.stringify(MAP_BASE));
+  const ROWS = MAP.length, COLS = MAP[0].length;
 
-  const ROWS = MAP.length;
-  const COLS = MAP[0].length;
+  const keysNeeded = 8;
 
-  const keysToCollect = 8;
-  let keysCollected = 0;
+  // Helpers
+  function clamp(v, mi, ma){ return Math.max(mi, Math.min(ma, v)); }
+  function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.hypot(dx,dy); }
+  function angle(a,b){ return Math.atan2(b.y-a.y, b.x-a.x); }
+  function normalizeAngle(a){ while(a>Math.PI) a-=2*Math.PI; while(a<-Math.PI) a+=2*Math.PI; return a; }
 
-  function findTile(n){
-    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===n) return {x:c*TILE+TILE/2, y:r*TILE+TILE/2};
-    return {x:TILE*2, y:TILE*2};
+  function tileAt(x,y){
+    const c = Math.floor(x / TILE), r = Math.floor(y / TILE);
+    if(r<0||r>=ROWS||c<0||c>=COLS) return 1;
+    return MAP[r][c];
   }
 
-  function findAllTiles(n){ const arr=[]; for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===n) arr.push({x:c*TILE+TILE/2, y:r*TILE+TILE/2, r, c}); return arr; }
+  function findTile(n){
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===n)
+      return {x:c*TILE+TILE/2, y:r*TILE+TILE/2, r, c};
+    return {x:TILE*2, y:TILE*2, r:1, c:1};
+  }
+  function findAll(n){ const a=[]; for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===n) a.push({x:c*TILE+TILE/2,y:r*TILE+TILE/2,r,c}); return a; }
 
   const spawn = findTile(2);
-  const exitDoor = findAllTiles(7)[0];
+  const exitDoor = findTile(7); // Exit to outside
 
-  // Entities
-  const player = { x: spawn.x, y: spawn.y, r: 12, speed: 2.1, sprint: 3.3, vx:0, vy:0, stamina: 100, flashlight:false, facing:0, hidden:false };
-  const enemy = { x: spawn.x+200, y: spawn.y+40, r:14, speed:1.85, fov: Math.PI/4.5, baseRange: 260, alert:false, target:null, patrol:[], patrolIndex:0, cooldown:0, fakeoutTimer:0 };
+  // ================ ENTITIES & STATE ==================
+  const player = { x:spawn.x, y:spawn.y, r:12, speed:2.1, sprint:3.3, vx:0, vy:0, stamina:100, flashlight:false, facing:0, hidden:false };
+  const enemy  = { x:spawn.x+200, y:spawn.y+40, r:14, speed:1.85, fov: Math.PI/4.5, baseRange:260, alert:false, target:null, patrol:[], patrolIndex:0, cooldown:0, fakeoutTimer:0 };
 
-  // Camera scroll
-  const cam = { x: 0, y: 0 };
+  const cam = { x:0, y:0 };
 
-  // Build patrol waypoints roughly around main halls
   enemy.patrol = [
     {x: TILE*8,  y: TILE*3},
     {x: TILE*8,  y: TILE*16},
@@ -178,84 +189,130 @@
     {x: TILE*22, y: TILE*4},
   ];
 
-  // Map elements that need state
-  let doors = [];
-  let chalkboards = [];
-  let keys = [];
-  let lockers = [];
-  let terminals = [];
-  let lightSources = [];
-  let noiseMakers = [];
-  let cameras = [];
+  // Dynamic key pieces (randomized each reset)
+  let pieces = []; // {x,y,taken:false}
+  let heldPieces = 0;
+  let masterKey = false;
+  let forging = 0; // forge progress frames while holding E at exit
 
-  let codePromptActive = false;
-  let activeDoor = null;
+  // Lockers & Terminals
+  const lockers = findAll(5);
+  const terminals = findAll(6);
+
+  // Cameras
+  const cameras = [
+    {x:TILE*10.5, y:TILE*2.5, range:240, fov:Math.PI/5, angle:0, min:-Math.PI/3, max:Math.PI/3, dir:1, speed:0.01, cooldown:0},
+    {x:TILE*22.5, y:TILE*12.5, range:260, fov:Math.PI/5, angle:Math.PI, min:Math.PI-0.9, max:Math.PI+0.9, dir:1, speed:0.012, cooldown:0},
+    {x:TILE*35.5, y:TILE*4.5,  range:220, fov:Math.PI/6, angle:Math.PI/2, min:Math.PI/2-0.7, max:Math.PI/2+0.7, dir:1, speed:0.009, cooldown:0},
+    {x:TILE*16.5, y:TILE*8.5,  range:220, fov:Math.PI/6, angle:-Math.PI/2, min:-Math.PI/2-0.7, max:-Math.PI/2+0.7, dir:1, speed:0.011, cooldown:0},
+  ];
 
   // Systems
-  let running = false;
-  let gameOver = false;
-  let won = false;
+  let running=false, won=false;
   let camAlertTimer = 0;
   let camerasDisabledTimer = 0;
-  let lightLevel = 1;
-  let flickerTimer = 0;
-  let blackoutTimer = 0;
 
+  // Lighting
+  let lightLevel = 1, flickerTimer = 0, blackoutTimer = 0;
+
+  // Hearing
   const HEAR_RANGE = 280;
 
-  const input = { up:false, down:false, left:false, right:false, sprint:false, interact:false };
+  // =============== INPUT (KB + TOUCH) =================
+  const input = { up:false, down:false, left:false, right:false, sprint:false, interact:false, ax:0, ay:0 };
   onkeydown = e => {
-    if(gameOver || won) return;
-    if(e.key==='ArrowUp'||e.key==='w') input.up=true;
-    if(e.key==='ArrowDown'||e.key==='s') input.down=true;
-    if(e.key==='ArrowLeft'||e.key==='a') input.left=true;
-    if(e.key==='ArrowRight'||e.key==='d') input.right=true;
-    if(e.key==='Shift') input.sprint=true;
-    if(e.key==='f' || e.key==='F') player.flashlight = !player.flashlight;
-    if(e.key==='e' || e.key==='E') input.interact = true;
-  }
+    const k = e.key;
+    if(k==='ArrowUp'||k==='w'||k==='W') input.up=true;
+    if(k==='ArrowDown'||k==='s'||k==='S') input.down=true;
+    if(k==='ArrowLeft'||k==='a'||k==='A') input.left=true;
+    if(k==='ArrowRight'||k==='d'||k==='D') input.right=true;
+    if(k==='Shift') input.sprint=true;
+    if(k==='f'||k==='F') toggleFlash();
+    if(k==='e'||k==='E'){ input.interact=true; }
+  };
   onkeyup = e => {
-    if(gameOver || won) return;
-    if(e.key==='ArrowUp'||e.key==='w') input.up=false;
-    if(e.key==='ArrowDown'||e.key==='s') input.down=false;
-    if(e.key==='ArrowLeft'||e.key==='a') input.left=false;
-    if(e.key==='ArrowRight'||e.key==='d') input.right=false;
-    if(e.key==='e' || e.key==='E') input.interact = false;
-  }
+    const k = e.key;
+    if(k==='ArrowUp'||k==='w'||k==='W') input.up=false;
+    if(k==='ArrowDown'||k==='s'||k==='S') input.down=false;
+    if(k==='ArrowLeft'||k==='a'||k==='A') input.left=false;
+    if(k==='ArrowRight'||k==='d'||k==='D') input.right=false;
+    if(k==='Shift') input.sprint=false;
+    if(k==='e'||k==='E'){ input.interact=false; forging=0; }
+  };
 
-  function tileAt(x,y){
-    const c = Math.floor(x / TILE), r = Math.floor(y / TILE);
-    if(r<0||r>=ROWS||c<0||c>=COLS) return 1;
-    return MAP[r][c];
+  // Touch joystick
+  let stickId = null, stickCenter = {x:0,y:0};
+  function setAxis(dx,dy){
+    const len = Math.hypot(dx,dy) || 1;
+    const nx = dx/len, ny = dy/len;
+    input.ax = clamp(nx, -1, 1);
+    input.ay = clamp(ny, -1, 1);
   }
+  stick.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    if(stickId!==null) return;
+    const t = e.changedTouches[0];
+    stickId = t.identifier;
+    const r = stick.getBoundingClientRect();
+    stickCenter.x = r.left + r.width/2;
+    stickCenter.y = r.top + r.height/2;
+    knob.style.transition='none';
+  }, {passive:false});
+  stick.addEventListener('touchmove', e=>{
+    e.preventDefault();
+    if(stickId===null) return;
+    for(const t of e.changedTouches){
+      if(t.identifier!==stickId) continue;
+      const dx = t.clientX - stickCenter.x;
+      const dy = t.clientY - stickCenter.y;
+      const max = stick.clientWidth*0.38;
+      const mag = Math.hypot(dx,dy);
+      const cl = mag>max ? max/mag : 1;
+      knob.style.transform = `translate(${dx*cl}px,${dy*cl}px)`;
+      setAxis(dx,dy);
+    }
+  }, {passive:false});
+  function resetStick(){
+    stickId=null; input.ax=0; input.ay=0;
+    knob.style.transition='transform .12s ease-out';
+    knob.style.transform='translate(-50%,-50%)';
+  }
+  stick.addEventListener('touchend', e=>{ e.preventDefault(); for(const t of e.changedTouches){ if(t.identifier===stickId){ resetStick(); } } }, {passive:false});
+  stick.addEventListener('touchcancel', e=>{ e.preventDefault(); resetStick(); }, {passive:false});
 
+  // Touch buttons
+  btnSprint.addEventListener('touchstart', e=>{ e.preventDefault(); input.sprint=true; btnSprint.classList.add('active'); }, {passive:false});
+  btnSprint.addEventListener('touchend',   e=>{ e.preventDefault(); input.sprint=false; btnSprint.classList.remove('active'); }, {passive:false});
+  btnFlash.addEventListener('touchstart',  e=>{ e.preventDefault(); toggleFlash(); btnFlash.classList.toggle('active', player.flashlight); }, {passive:false});
+  btnInteract.addEventListener('touchstart', e=>{ e.preventDefault(); input.interact=true; }, {passive:false});
+  btnInteract.addEventListener('touchend', e=>{ e.preventDefault(); input.interact=false; forging=0; }, {passive:false});
+
+  function toggleFlash(){ if(player.hidden) return; player.flashlight=!player.flashlight; }
+
+  // ============ COLLISION & VISION =================
   function collideCircleWalls(obj){
     if(tileAt(obj.x+obj.vx+Math.sign(obj.vx)*obj.r, obj.y)===1) obj.vx = 0;
     if(tileAt(obj.x, obj.y+obj.vy+Math.sign(obj.vy)*obj.r)===1) obj.vy = 0;
     if(tileAt(obj.x+Math.sign(obj.vx)*obj.r, obj.y+Math.sign(obj.vy)*obj.r)===1){ obj.vx=0; obj.vy=0; }
   }
-
-  function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.hypot(dx,dy); }
-  function angle(a,b){ return Math.atan2(b.y-a.y, b.x-a.x); }
-  function clamp(v,mi,ma){ return Math.max(mi, Math.min(ma, v)); }
-
   function canSeeCone(from,to, angleCenter, fov, maxDist){
-    const ang = angle({x:from.x,y:from.y},to);
-    const withinCone = Math.abs(normalizeAngle(ang - angleCenter)) <= fov/2;
-    if(!withinCone) return false;
-    const d = dist(from, to); if(d>maxDist) return false;
+    const ang = angle(from,to);
+    const within = Math.abs(normalizeAngle(ang - angleCenter)) <= fov/2;
+    if(!within) return false;
+    const d = dist(from,to); if(d>maxDist) return false;
     const steps = Math.ceil(d/6);
     for(let i=1;i<=steps;i++){
       const px = from.x + (to.x-from.x)*(i/steps);
       const py = from.y + (to.y-from.y)*(i/steps);
-      const t = tileAt(px,py);
-      if(t===1) return false;
-      const door = doors.find(d => d.r === Math.floor(py/TILE) && d.c === Math.floor(px/TILE));
-      if(door && !door.open) return false;
+      if(tileAt(px,py)===1) return false;
     }
     return true;
   }
-
+  function enemyFacing(e){
+    if(e.target) return angle(e,e.target);
+    const next = e.patrol[(e.patrolIndex)%e.patrol.length];
+    return angle(e,next);
+  }
   function canSeeEnemy(){
     const ambient = blackoutTimer>0 ? 0.6 : (0.8 + 0.2*lightLevel);
     const baseRange = enemy.baseRange * ambient * (player.flashlight ? 1.15 : 1.0);
@@ -263,223 +320,167 @@
     return canSeeCone(enemy, player, facing, enemy.fov, baseRange);
   }
 
-  function normalizeAngle(a){ while(a>Math.PI) a-=2*Math.PI; while(a<-Math.PI) a+=2*Math.PI; return a; }
-  function enemyFacing(e){
-    if(e.target){ return angle(e, e.target); }
-    const next = e.patrol[(e.patrolIndex)%e.patrol.length];
-    return angle(e,next);
+  // ================ NEARBY HELPERS ==================
+  function near(list, rad=24){ for(const p of list){ if(dist(player,p)<rad) return p; } return null; }
+  function nearLocker(){ return near(lockers, 26); }
+  function nearTerminal(){ return near(terminals, 28); }
+  function nearExit(){ return dist(player, exitDoor) < 28; }
+
+  // ============ RANDOM KEY PIECE SPAWNER ============
+  function isClassroomy(r,c){
+    if(MAP[r][c]!==0) return false;
+    // Heuristic: "room-ish" = at least 2 adjacent walls (corners/alcoves), not on outer border
+    let walls = 0;
+    if(MAP[r-1]?.[c]===1) walls++;
+    if(MAP[r+1]?.[c]===1) walls++;
+    if(MAP[r]?.[c-1]===1) walls++;
+    if(MAP[r]?.[c+1]===1) walls++;
+    if(walls < 2) return false;
+    // Avoid spawn & exit vicinity
+    const x=c*TILE+TILE/2, y=r*TILE+TILE/2;
+    const tmp = {x,y};
+    if(Math.hypot(tmp.x-spawn.x, tmp.y-spawn.y) < 120) return false;
+    if(Math.hypot(tmp.x-exitDoor.x, tmp.y-exitDoor.y) < 160) return false;
+    return true;
   }
 
-  function nearThing(list, radius=24){ for(const p of list){ if(dist(player,p)<radius) return p; } return null; }
-  function nearLocker(){ return nearThing(lockers, 26); }
-  function nearTerminal(){ return nearThing(terminals, 28); }
-  function nearNoiseMaker(){ return nearThing(noiseMakers, 28); }
-  function nearDoor(){ return nearThing(doors, 28); }
-  function nearExitDoor(){ return dist(player, exitDoor)<28; }
-  function nearKey(){ return nearThing(keys, 20); }
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
+  function rollPieces(){
+    const candidates=[];
+    for(let r=1;r<ROWS-1;r++){
+      for(let c=1;c<COLS-1;c++){
+        if(isClassroomy(r,c)) candidates.push({x:c*TILE+TILE/2, y:r*TILE+TILE/2});
+      }
+    }
+    shuffle(candidates);
+    pieces = candidates.slice(0, keysNeeded).map(p=>({...p, taken:false}));
+  }
+
+  // ================== INTERACT ======================
   function tryInteract(){
     if(player.hidden){ player.hidden=false; player.flashlight=false; uiHidden.textContent='No'; return; }
-    
-    // Doors
-    const door = nearDoor();
-    if(door){
-      if(door.locked){
-        if(!codePromptActive){
-          codePromptActive=true;
-          activeDoor = door;
-          codePrompt.style.display = 'flex';
-          codeInput.value = '';
-          codeInput.focus();
-        }
-      } else {
-        door.open = !door.open;
-        if(door.open) {
-          MAP[door.r][door.c] = 0; // change door to floor for collision
-        } else {
-          MAP[door.r][door.c] = 3;
-        }
-      }
-      return;
-    }
 
-    // Terminals
     const term = nearTerminal();
-    if(term){ camerasDisabledTimer = 60*30; uiCams.textContent = 'Offline'; return; }
+    if(term){ camerasDisabledTimer = 60*30; uiCams.textContent='Offline'; return; }
 
-    // Lockers
     const locker = nearLocker();
     if(locker){ player.hidden=true; player.vx=player.vy=0; player.flashlight=false; uiHidden.textContent='Yes'; return; }
 
-    // Noise makers
-    const nm = nearNoiseMaker();
-    if(nm && !nm.used){
-      nm.used = true;
-      enemy.alert = true;
-      enemy.target = {x: nm.x, y: nm.y};
-      enemy.cooldown = 360;
-      return;
-    }
-
-    const key = nearKey();
-    if(key && !key.taken){
-      key.taken = true;
-      keysCollected++;
-      return;
-    }
-
-    if(keysCollected >= keysToCollect && nearExitDoor()){ won=true; endGame(); return; }
-  }
-
-  function setupMapElements(){
-    MAP = JSON.parse(JSON.stringify(MAP_BASE));
-    doors = [];
-    chalkboards = [];
-    keys = [];
-    lockers = [];
-    terminals = [];
-    lightSources = [];
-    noiseMakers = [];
-    cameras = [];
-
-    // Find all dynamic elements
-    for(let r=0; r<ROWS; r++){
-      for(let c=0; c<COLS; c++){
-        const tile = MAP[r][c];
-        const obj = {x: c*TILE+TILE/2, y: r*TILE+TILE/2, r, c};
-        if(tile === 3){
-          obj.open = false;
-          obj.locked = true;
-          obj.code = Math.floor(10 + Math.random()*90); // two-digit code
-          doors.push(obj);
-        } else if(tile === 5){
-          lockers.push(obj);
-        } else if(tile === 6){
-          terminals.push(obj);
-        } else if(tile === 8){
-          obj.used = false;
-          noiseMakers.push(obj);
-        } else if (tile === 4) {
-          obj.taken = false;
-          keys.push(obj);
-        }
+    // Forge at Exit: hold interact to craft if 8/8 and not yet forged
+    if(heldPieces>=keysNeeded && nearExit() && !masterKey){
+      // start/continue forging
+      forging += 1; // frames
+      if(forging > 120){ // ~2s hold
+        masterKey = true;
+        forging = 0;
       }
+      return;
     }
-    const codeLocations = findAllTiles(9).slice(0, doors.length);
-    for(let i=0; i<doors.length; i++){
-      const door = doors[i];
-      const chalkboard = codeLocations[i];
-      chalkboard.code = door.code;
-      chalkboards.push(chalkboard);
+
+    // Use Exit if have Master Key
+    if(masterKey && nearExit()){
+      won = true; endGame(); return;
     }
-    
-    // Static lights
-    lightSources.push({x: TILE*25, y: TILE*4, radius: 200});
-    lightSources.push({x: TILE*12, y: TILE*18, radius: 240});
-    lightSources.push({x: TILE*35, y: TILE*15, radius: 220});
-    lightSources.push({x: TILE*5, y: TILE*10, radius: 180});
-    lightSources.push({x: TILE*20, y: TILE*20, radius: 200});
   }
 
+  // ================ RESET / LOOP ====================
   function reset(){
-    setupMapElements();
     player.x = spawn.x; player.y = spawn.y; player.stamina=100; player.flashlight=false; player.hidden=false;
-    keysCollected = 0;
-    
-    enemy.x = spawn.x+200; enemy.y = spawn.y+40; enemy.alert=false; enemy.target=null; enemy.patrolIndex=0; enemy.cooldown=0; enemy.fakeoutTimer=0;
+    heldPieces = 0; masterKey=false; forging=0;
+    rollPieces();
+
+    enemy.x = spawn.x+200; enemy.y = spawn.y+40;
+    enemy.alert=false; enemy.target=null; enemy.patrolIndex=0; enemy.cooldown=0; enemy.fakeoutTimer=0;
+
     camAlertTimer = 0; alertEl.style.display='none';
     camerasDisabledTimer = 0; uiCams.textContent='Online';
     lightLevel = 1; flickerTimer=0; blackoutTimer=0;
-    running = true; gameOver=false; won=false;
+
+    running = true; won = false;
     overlay.style.display='none';
     retryBtn.style.display='none';
-    playBtn.style.display='inline-block';
+    playBtn.style.display='none';
   }
 
-  playBtn.addEventListener('click', () => { reset(); });
-  retryBtn.addEventListener('click', () => { reset(); });
-  changelogBtn.addEventListener('click', () => { changelogPopup.style.display = 'flex'; });
-  closeChangelogBtn.addEventListener('click', () => { changelogPopup.style.display = 'none'; });
+  playBtn.onclick = ()=>reset();
+  retryBtn.onclick = ()=>reset();
 
-  // Code prompt interaction
-  submitCodeBtn.addEventListener('click', () => {
-    const enteredCode = parseInt(codeInput.value, 10);
-    if(activeDoor && enteredCode === activeDoor.code){
-      activeDoor.locked = false;
-      activeDoor.open = true;
-      MAP[activeDoor.r][activeDoor.c] = 0;
-    }
-    codePromptActive = false;
-    codePrompt.style.display = 'none';
-  });
-  cancelCodeBtn.addEventListener('click', () => {
-    codePromptActive = false;
-    codePrompt.style.display = 'none';
-  });
-  codeInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      submitCodeBtn.click();
-    }
-  });
-
-  // Start menu shown initially
   overlay.style.display='flex';
 
+  // =================== UPDATE =======================
   function update(){
     requestAnimationFrame(update);
+
+    // camera follow
+    const W = W0, H = H0;
     cam.x = clamp(player.x - W/2, 0, COLS*TILE - W);
     cam.y = clamp(player.y - H/2, 0, ROWS*TILE - H);
 
     if(!running){ draw(); return; }
 
-    // --- Lighting effects ---
+    // Lighting
     if(blackoutTimer>0){ blackoutTimer--; lightLevel = 0.25; }
     else {
       if(flickerTimer>0){ flickerTimer--; lightLevel = 0.7 + Math.random()*0.2; }
-      else { lightLevel = 1; if(Math.random()<0.001) flickerTimer = 40; if(Math.random()<0.0003) blackoutTimer = 180; }
+      else { lightLevel = 1; if(Math.random()<0.003) flickerTimer = 40; if(Math.random()<0.0008) blackoutTimer = 180; }
     }
 
-    if(input.interact){ tryInteract(); input.interact=false; }
+    // Input → Interact
+    if(input.interact) tryInteract();
 
-    if(!player.hidden){
-      const spd = (input.sprint && player.stamina>0) ? player.sprint : player.speed;
-      player.vx = (input.right - input.left) * spd;
-      player.vy = (input.down - input.up) * spd;
-      if(player.vx && player.vy){ player.vx *= 0.7071; player.vy *= 0.7071; }
-      const moving = (player.vx||player.vy);
-      if(input.sprint && moving) player.stamina = Math.max(0, player.stamina - 0.25);
-      else player.stamina = Math.min(100, player.stamina + 0.15);
-      collideCircleWalls(player);
-      player.x += player.vx; player.y += player.vy;
-      if(moving) player.facing = Math.atan2(player.vy, player.vx);
-      if(input.sprint && moving){
-        const d = dist(player, enemy);
-        if(d < HEAR_RANGE){ enemy.alert = true; enemy.target = {x:player.x, y:player.y}; enemy.cooldown = 180; }
+    // Player movement (KB axes OR joystick axes)
+    const ax = (input.right?1:0) - (input.left?1:0) || input.ax;
+    const ay = (input.down?1:0) - (input.up?1:0)   || input.ay;
+    let len = Math.hypot(ax,ay);
+    let dx=0, dy=0;
+    if(len>0){ dx = ax/len; dy = ay/len; }
+
+    const sprinting = (input.sprint && player.stamina>0) ? 1 : 0;
+    const spd = sprinting ? player.sprint : player.speed;
+    player.vx = dx * spd;
+    player.vy = dy * spd;
+
+    const moving = (dx||dy);
+    if(sprinting && moving) player.stamina = Math.max(0, player.stamina - 0.25);
+    else if(player.hidden)  player.stamina = Math.min(100, player.stamina + 0.4);
+    else                    player.stamina = Math.min(100, player.stamina + 0.15);
+
+    collideCircleWalls(player);
+    player.x += player.vx; player.y += player.vy;
+    if(moving) player.facing = Math.atan2(player.vy, player.vx);
+
+    // Noise → enemy investigate
+    if(sprinting && moving){
+      const d = dist(player, enemy);
+      if(d < HEAR_RANGE){ enemy.alert = true; enemy.target = {x:player.x, y:player.y}; enemy.cooldown = 180; }
+    }
+
+    // Collect pieces
+    for(const p of pieces){
+      if(!p.taken && Math.hypot(player.x-p.x, player.y-p.y) < 18){
+        p.taken = true; heldPieces++;
       }
-    } else {
-      player.stamina = Math.min(100, player.stamina + 0.4);
     }
 
-    // --- Cameras ---
+    // Cameras
     if(camerasDisabledTimer>0){ camerasDisabledTimer--; if(camerasDisabledTimer===0) uiCams.textContent='Online'; }
     for(const camObj of cameras){
       camObj.angle += camObj.speed * camObj.dir;
       if(camObj.angle>camObj.max){ camObj.angle=camObj.max; camObj.dir*=-1; }
       if(camObj.angle<camObj.min){ camObj.angle=camObj.min; camObj.dir*=-1; }
+
       if(player.hidden) continue;
       if(camerasDisabledTimer>0) continue;
       if(canSeeCone(camObj, player, camObj.angle, camObj.fov, camObj.range)){
         camObj.cooldown = 180;
-        camAlertTimer = 60;
-        alertEl.style.display='block';
-        enemy.alert = true;
-        enemy.target = {x: player.x, y: player.y};
-        enemy.cooldown = 300;
+        camAlertTimer = 60; alertEl.style.display='block';
+        enemy.alert = true; enemy.target = {x:player.x, y:player.y}; enemy.cooldown = 300;
       } else if(camObj.cooldown>0){ camObj.cooldown--; }
     }
     if(camAlertTimer>0){ camAlertTimer--; if(camAlertTimer===0) alertEl.style.display='none'; }
 
-    // --- Enemy AI ---
+    // Enemy AI
     const seen = !player.hidden && canSeeEnemy();
     if(!enemy.alert && !player.hidden){
       const toPlayer = angle(enemy, player);
@@ -487,15 +488,14 @@
       const behind = Math.abs(normalizeAngle(toPlayer - face)) > Math.PI*0.7;
       if(behind && dist(player, enemy) < 140){ if(enemy.fakeoutTimer<=0) enemy.fakeoutTimer = 60; }
     }
-
-    if(seen){ enemy.alert = true; enemy.target = {x:player.x, y:player.y}; enemy.cooldown = 240; enemy.fakeoutTimer = 0; }
+    if(seen){ enemy.alert=true; enemy.target={x:player.x,y:player.y}; enemy.cooldown=240; enemy.fakeoutTimer=0; }
     else { if(enemy.cooldown>0) enemy.cooldown--; else enemy.alert=false; }
 
     if(enemy.alert){
       const ang = angle(enemy, enemy.target);
-      const spd = enemy.speed + 0.4;
-      enemy.x += Math.cos(ang) * spd;
-      enemy.y += Math.sin(ang) * spd;
+      const spdE = enemy.speed + 0.4;
+      enemy.x += Math.cos(ang)*spdE;
+      enemy.y += Math.sin(ang)*spdE;
       if(dist(enemy, enemy.target)<12) enemy.alert=false;
     } else {
       if(enemy.fakeoutTimer>0){
@@ -515,36 +515,37 @@
         if(Math.random()<0.0015){ enemy.fakeoutTimer = 50; }
       }
     }
+    enemy.vx = enemy.vy = 0; collideCircleWalls(enemy);
 
-    enemy.vx = enemy.vy = 0;
-    collideCircleWalls(enemy);
-    if(!player.hidden && dist(player, enemy) < 16){ gameOver = true; endGame(); }
+    // Caught?
+    if(!player.hidden && dist(player, enemy) < 16){ endGame(); }
 
-    updateUI();
-    draw();
-  }
-
-  function updateUI() {
-    uiKeys.textContent = keysCollected;
+    // UI
+    uiKeys.textContent = `${heldPieces}`;
+    uiMK.textContent = masterKey ? 'Yes' : (heldPieces>=keysNeeded && nearExit() ? `Hold E ${Math.max(0, (120-forging)/60).toFixed(1)}s` : 'No');
     uiStam.textContent = `${Math.round(player.stamina)}`;
     uiHidden.textContent = player.hidden ? 'Yes' : 'No';
     if(camerasDisabledTimer>0) uiCams.textContent = `Offline ${Math.ceil(camerasDisabledTimer/60)}s`;
+
+    draw();
   }
 
+  // ================== END GAME ======================
   function endGame(){
     running=false;
     overlay.style.display='flex';
     retryBtn.style.display='inline-block';
     playBtn.style.display='none';
-    titleEl.textContent = won ? "You Escaped Westpine Academy" : 'Caught by Mr. Johnson';
-    msgEl.textContent = won
-      ? 'You unlock the front door and step outside. The cool night air is a welcome relief.'
-      : 'Detention… forever. Tips: hide in lockers (E), hack terminals, respect camera sweeps, sprint in bursts, and watch for fake-outs.';
+    titleEl.textContent = won ? 'You Escaped Outside' : 'Caught by Mr. Johnson';
+    msgEl.innerHTML = won
+      ? 'You craft the Master Key, crack the exit, and spill out into the cold Westpine night. The school exhales behind you…'
+      : 'Detention… forever.<br/>Tips: collect 8 pieces in classrooms, forge at the exit (hold Interact), hack terminals to disable cams, sprint in bursts, hide in lockers near patrol routes.';
   }
 
+  // ==================== DRAW ========================
   function draw(){
-    ctx.fillStyle = '#07070b';
-    ctx.fillRect(0,0,W,H);
+    const W = W0, H = H0;
+    ctx.fillStyle = '#07070b'; ctx.fillRect(0,0,W,H);
 
     const dark = clamp(0.55 + (1-lightLevel)*0.6, 0, 0.95);
     const c0 = Math.max(0, Math.floor(cam.x / TILE) - 1);
@@ -554,148 +555,102 @@
 
     for(let r=r0;r<=r1;r++){
       for(let c=c0;c<=c1;c++){
-        const t = MAP[r][c];
-        const x=c*TILE - cam.x, y=r*TILE - cam.y;
-        if(t===1){
-          ctx.fillStyle = '#161622';
-          ctx.fillRect(x,y,TILE,TILE);
-        } else {
-          ctx.fillStyle = '#0f0f18';
-          ctx.fillRect(x,y,TILE,TILE);
-          ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-          ctx.strokeRect(x+0.5,y+0.5,TILE-1,TILE-1);
+        const t = MAP[r][c], x=c*TILE - cam.x, y=r*TILE - cam.y;
+        if(t===1){ ctx.fillStyle='#161622'; ctx.fillRect(x,y,TILE,TILE); }
+        else {
+          ctx.fillStyle='#0f0f18'; ctx.fillRect(x,y,TILE,TILE);
+          ctx.strokeStyle='rgba(255,255,255,0.03)'; ctx.strokeRect(x+0.5,y+0.5,TILE-1,TILE-1);
         }
-        if(t===3){
-          const door = doors.find(d => d.r === r && d.c === c);
-          if(!door.open){
-            ctx.fillStyle = door.locked ? '#404070' : '#4a73c2';
-            ctx.fillRect(x,y,TILE,TILE);
-          }
+        if(t===5){ // lockers
+          ctx.fillStyle='#1b3b6f'; ctx.fillRect(x+4,y+4,TILE-8,TILE-8);
+          ctx.fillStyle='#8bb5ff'; ctx.fillRect(x+TILE-10,y+TILE/2-3,6,6);
         }
-        if(t===5){
-          ctx.fillStyle = '#1b3b6f';
-          ctx.fillRect(x+4,y+4,TILE-8,TILE-8);
-          ctx.fillStyle = '#8bb5ff';
-          ctx.fillRect(x+TILE-10,y+TILE/2-3,6,6);
-        }
-        if(t===6){
+        if(t===6){ // terminals
           ctx.fillStyle = camerasDisabledTimer>0 ? '#2a823a' : '#4062b2';
           ctx.fillRect(x+6,y+6,TILE-12,TILE-12);
-          ctx.fillStyle = '#0b0b10'; ctx.fillRect(x+10,y+10,TILE-20,TILE-20);
+          ctx.fillStyle='#0b0b10'; ctx.fillRect(x+10,y+10,TILE-20,TILE-20);
         }
-        if(t===7){
-          ctx.fillStyle = keysCollected>=keysToCollect ? '#3fa370' : '#704040';
+        if(t===7){ // Exit Door
+          // green if MasterKey or craftable
+          const canForge = (heldPieces>=keysNeeded && nearExit() && !masterKey);
+          ctx.fillStyle = masterKey ? '#3fa370' : (canForge ? '#b3963f' : '#704040');
           ctx.fillRect(x+2,y+2,TILE-4,TILE-4);
-        }
-        if(t===8){
-          const nm = noiseMakers.find(n => n.r === r && n.c === c);
-          if (nm && !nm.used) {
-            ctx.fillStyle = '#e55a5a';
-            ctx.beginPath();
-            ctx.arc(x+TILE/2, y+TILE/2, TILE/4, 0, Math.PI*2);
-            ctx.fill();
-          }
-        }
-        if(t===9){
-          ctx.fillStyle = '#222233';
-          ctx.fillRect(x+4,y+4,TILE-8,TILE-8);
-          const cb = chalkboards.find(b => b.r === r && b.c === c);
-          if(cb){
-            ctx.fillStyle = '#b3e8b3';
-            ctx.font = '10px monospace';
-            ctx.fillText(`Code: ${cb.code}`, x+8, y+16);
-          }
         }
       }
     }
 
-    // Keys
-    for(const k of keys){ if(k.taken) continue; const sx=k.x - cam.x, sy=k.y - cam.y; if(sx<-20||sy<-20||sx>W+20||sy>H+20) continue; ctx.fillStyle='#e8c547'; ctx.beginPath(); ctx.arc(sx,sy,6,0,Math.PI*2); ctx.fill(); }
+    // Draw key pieces
+    for(const p of pieces){
+      if(p.taken) continue;
+      const sx=p.x - cam.x, sy=p.y - cam.y;
+      if(sx<-20||sy<-20||sx>W+20||sy>H+20) continue;
+      ctx.fillStyle='#e8c547';
+      ctx.beginPath(); ctx.arc(sx,sy,6,0,Math.PI*2); ctx.fill();
+    }
 
-    // Cameras fov & bodies
+    // Cameras
     for(const camObj of cameras){
       const sx=camObj.x - cam.x, sy=camObj.y - cam.y;
       if(camerasDisabledTimer<=0){
-        ctx.save();
-        ctx.fillStyle = 'rgba(80,140,255,0.08)';
-        drawCone(sx, sy, camObj.angle, camObj.fov, camObj.range);
-        ctx.restore();
+        ctx.save(); ctx.fillStyle='rgba(80,140,255,0.08)';
+        drawCone(sx,sy,camObj.angle,camObj.fov,camObj.range); ctx.restore();
       }
       ctx.fillStyle = camerasDisabledTimer>0 ? '#2a823a' : '#4a73c2';
       ctx.beginPath();
       ctx.moveTo(sx+Math.cos(camObj.angle)*10, sy+Math.sin(camObj.angle)*10);
       ctx.lineTo(sx+Math.cos(camObj.angle+0.8)*10, sy+Math.sin(camObj.angle+0.8)*10);
       ctx.lineTo(sx+Math.cos(camObj.angle-0.8)*10, sy+Math.sin(camObj.angle-0.8)*10);
-      ctx.closePath();
-      ctx.fill();
+      ctx.closePath(); ctx.fill();
       if(camObj.cooldown>0 && camerasDisabledTimer<=0){
-        ctx.fillStyle = '#ff5d5d';
-        ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle='#ff5d5d'; ctx.beginPath(); ctx.arc(sx,sy,3,0,Math.PI*2); ctx.fill();
       }
     }
 
-    // Light sources
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    for(const light of lightSources){
-      const sx=light.x - cam.x, sy=light.y - cam.y;
-      const lightRange = light.radius + Math.sin(Date.now()/500)*5;
-      const gradient = ctx.createRadialGradient(sx, sy, 0, sx, sy, lightRange);
-      gradient.addColorStop(0, 'rgba(255, 255, 200, 0.2)');
-      gradient.addColorStop(1, 'rgba(255, 255, 200, 0)');
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(sx, sy, lightRange, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
-
-    // enemy FOV
+    // Enemy FOV
     const face = enemyFacing(enemy);
     const ambient = blackoutTimer>0 ? 0.6 : (0.8 + 0.2*lightLevel);
     const eRange = enemy.baseRange * ambient;
-    ctx.save();
-    ctx.fillStyle = 'rgba(255,80,80,0.08)';
-    drawCone(enemy.x - cam.x, enemy.y - cam.y, face, enemy.fov, eRange);
-    ctx.restore();
+    ctx.save(); ctx.fillStyle='rgba(255,80,80,0.08)';
+    drawCone(enemy.x - cam.x, enemy.y - cam.y, face, enemy.fov, eRange); ctx.restore();
 
-    // player flashlight
+    // Player flashlight
     if(player.flashlight && !player.hidden){
-      const coneAngle = player.facing;
-      const coneWidth = Math.PI/5;
-      const coneRange = 240;
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle='rgba(180,180,200,0.12)';
-      drawCone(player.x - cam.x, player.y - cam.y, coneAngle, coneWidth, coneRange);
-      ctx.restore();
+      ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(180,180,200,0.12)';
+      drawCone(player.x - cam.x, player.y - cam.y, player.facing, Math.PI/5, 240); ctx.restore();
     }
 
-    ctx.fillStyle = `rgba(0,0,0,${dark})`;
-    ctx.fillRect(0,0,W,H);
+    // Darkness overlay
+    ctx.fillStyle = `rgba(0,0,0,${dark})`; ctx.fillRect(0,0,W,H);
 
-    // entities
+    // Player
     if(!player.hidden){
       ctx.fillStyle = '#8bb5ff';
       ctx.beginPath(); ctx.arc(player.x - cam.x, player.y - cam.y, player.r, 0, Math.PI*2); ctx.fill();
     }
 
+    // Mr. Johnson (stylized)
     ctx.fillStyle = '#4b3424';
     ctx.beginPath(); ctx.arc(enemy.x - cam.x, enemy.y - cam.y, enemy.r+1, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#141414';
+    ctx.fillStyle = '#141414'; // beard
     ctx.beginPath();
     ctx.arc(enemy.x - cam.x, enemy.y - cam.y + 2, enemy.r-2, Math.PI*0.15, Math.PI-0.15);
-    ctx.lineTo(enemy.x - cam.x, enemy.y - cam.y + 3);
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#0d0d0d';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(enemy.x - cam.x, enemy.y - cam.y + 1, enemy.r-6, Math.PI*0.05, Math.PI-0.05);
-    ctx.stroke();
+    ctx.lineTo(enemy.x - cam.x, enemy.y - cam.y + 3); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#0d0d0d'; ctx.lineWidth = 3; // mustache
+    ctx.beginPath(); ctx.arc(enemy.x - cam.x, enemy.y - cam.y + 1, enemy.r-6, Math.PI*0.05, Math.PI-0.05); ctx.stroke();
 
+    // Enemy alert marker
     if(enemy.alert){
-      ctx.fillStyle = '#ff5d5d';
-      ctx.beginPath(); ctx.arc(enemy.x - cam.x, enemy.y - cam.y - enemy.r - 10, 4, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle='#ff5d5d'; ctx.beginPath(); ctx.arc(enemy.x - cam.x, enemy.y - cam.y - enemy.r - 10, 4, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Forge progress ring (at exit)
+    if(heldPieces>=keysNeeded && nearExit() && !masterKey && input.interact){
+      const sx = exitDoor.x - cam.x, sy = exitDoor.y - cam.y;
+      const pct = clamp(forging/120,0,1);
+      ctx.strokeStyle = '#e8c547'; ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 18, -Math.PI/2, -Math.PI/2 + Math.PI*2*pct);
+      ctx.stroke();
     }
   }
 
@@ -707,6 +662,7 @@
     ctx.fill();
   }
 
+  // Start loop
   requestAnimationFrame(update);
   </script>
 </body>
