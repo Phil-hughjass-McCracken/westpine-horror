@@ -1,180 +1,721 @@
 <!doctype html>
 <html>
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Westpine Night — 3.0</title>
-<style>
-html, body { height: 100%; margin: 0; background:#0a0a0f; color:#e6e6f0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; }
-#ui { position: fixed; inset: 0 0 auto 0; display:flex; gap:12px; align-items:center; padding:10px 14px; background: linear-gradient(180deg, rgba(10,10,15,.9), rgba(10,10,15,.25)); backdrop-filter: blur(4px); z-index: 10; }
-#ui .pill { padding:4px 10px; border-radius:14px; background:#1b1b25; border:1px solid #2b2b38; box-shadow: inset 0 0 0 1px rgba(255,255,255,.03); font-size: 14px; }
-#ui .right { margin-left:auto; opacity:.95 }
-#ui .inv { display:flex; gap:8px; align-items:center; }
-#game { display:block; margin:0 auto; image-rendering: pixelated; }
-#overlay { position: fixed; inset:0; display:none; align-items:center; justify-content:center; background: rgba(0,0,0,.8); z-index: 20; }
-#overlay .card { background:#121219; border:1px solid #2b2b38; border-radius:16px; padding:20px; width:min(680px, 92vw); text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,.6); }
-#overlay h1 { margin:0 0 8px; font-size:28px; }
-#overlay p { margin:8px 0 16px; line-height:1.5 }
-#overlay button { background:#2b2bff; border:0; color:white; padding:10px 16px; border-radius:10px; cursor:pointer; font-weight:600; }
-#overlay button.secondary { background:#1b1b25; border:1px solid #2b2b38; margin-left:8px; }
-#alert { position: fixed; right:12px; bottom:12px; background:#3a0d0d; color:#ffb3b3; padding:8px 12px; border:1px solid #5c1717; border-radius:10px; display:none; font-weight:700; z-index: 15; }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Westpine Night — Mobile + Crawlspaces + Weather</title>
+  <style>
+    html, body { height:100%; margin:0; background:#0a0a0f; color:#e6e6f0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; overflow:hidden; }
+    #ui { position: fixed; inset: 0 0 auto 0; display:flex; gap:12px; align-items:center; padding:10px 14px; background: linear-gradient(180deg, rgba(10,10,15,.9), rgba(10,10,15,.25)); backdrop-filter: blur(4px); z-index: 10; }
+    #ui .pill { padding:4px 10px; border-radius:14px; background:#1b1b25; border:1px solid #2b2b38; box-shadow: inset 0 0 0 1px rgba(255,255,255,.03); font-size: 13px; white-space:nowrap; }
+    #ui .right { margin-left:auto; opacity:.95; display:flex; gap:10px; align-items:center; }
+    #ui .inv { display:flex; gap:8px; align-items:center; }
+    #game { display:block; margin:0 auto; touch-action:none; }
+    #overlay { position: fixed; inset:0; display:none; align-items:center; justify-content:center; background: rgba(0,0,0,.8); z-index: 20; }
+    #overlay .card { background:#121219; border:1px solid #2b2b38; border-radius:16px; padding:20px; width:min(760px, 92vw); text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,.6); }
+    #overlay h1 { margin:0 0 8px; font-size:28px; }
+    #overlay p { margin:8px 0 16px; line-height:1.5 }
+    #overlay button { background:#2b2bff; border:0; color:white; padding:10px 16px; border-radius:10px; cursor:pointer; font-weight:600; }
+    #overlay button.secondary { background:#1b1b25; border:1px solid #2b2b38; margin-left:8px; }
+    #alert { position: fixed; right:12px; bottom:12px; background:#3a0d0d; color:#ffb3b3; padding:8px 12px; border:1px solid #5c1717; border-radius:10px; display:none; font-weight:700; z-index: 15; }
+    /* Mobile controls */
+    #controls { position:fixed; inset:auto 0 0 0; display:none; padding:16px; z-index:12; pointer-events:none; }
+    .joystick { position:absolute; left:16px; bottom:16px; width:140px; height:140px; border-radius:50%; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); pointer-events:auto; touch-action:none; }
+    .stick { position:absolute; left:50%; top:50%; width:68px; height:68px; transform:translate(-50%,-50%); border-radius:50%; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); }
+    .buttons { position:absolute; right:16px; bottom:16px; display:grid; grid-template-columns: repeat(2, 82px); gap:10px; pointer-events:auto; }
+    .btn { user-select:none; -webkit-user-select:none; background:#1b1b25; color:#e6e6f0; border:1px solid #2b2b38; border-radius:12px; padding:12px 8px; font-weight:700; text-align:center; box-shadow: 0 2px 0 rgba(0,0,0,.4); }
+    .btn:active { transform: translateY(1px); }
+    .progress { position:fixed; inset:auto 0 64px 0; margin:auto; width:min(340px, 80vw); height:10px; background:#222230; border:1px solid #2b2b38; border-radius:999px; overflow:hidden; display:none; z-index:14; }
+    .bar { height:100%; width:0%; background:#3fa370; }
+    @media (max-width: 1024px) {
+      #controls { display:block; }
+      #ui .kb { display:none; }
+    }
+  </style>
 </head>
 <body>
-<div id="ui">
-  <div class="pill">WASD/Arrows: Move</div>
-  <div class="pill">Shift: Sprint (noise!)</div>
-  <div class="pill">F: Flashlight</div>
-  <div class="pill">E: Interact/Hide/Hack</div>
-  <div class="pill right inv">Keys: <span id="keys">0</span>/8 · Stamina: <span id="stamina">100</span>% · Hidden: <span id="hidden">No</span> · Cams: <span id="cams">Online</span></div>
-</div>
-<canvas id="game" width="960" height="576"></canvas>
-<div id="overlay">
-  <div class="card">
-    <h1 id="title">Westpine Night 3.0</h1>
-    <p id="message">Collect <b>8 keys</b>, hide in <b>lockers</b> or crawlspaces, hack camera terminals, avoid Mr. Johnson, and escape outside the school. Weather and crawlspaces vary per run!</p>
-    <div>
-      <button id="play">Play</button>
-      <button id="retry" class="secondary" style="display:none">Retry</button>
+  <div id="ui">
+    <div class="pill kb">WASD/Arrows: Move</div>
+    <div class="pill kb">Shift: Sprint</div>
+    <div class="pill kb">F: Flashlight</div>
+    <div class="pill kb">E: Interact / Hide / Hack</div>
+    <div class="pill">Crawlspace = Hidden, slower</div>
+    <div class="pill right inv">Shards: <span id="keys">0</span>/8 · Master Key: <span id="mkey">No</span> · Stamina: <span id="stamina">100</span>% · Hidden: <span id="hidden">No</span> · Cams: <span id="cams">Online</span> · Weather: <span id="wx">—</span></div>
+  </div>
+
+  <canvas id="game" width="960" height="576"></canvas>
+
+  <div id="overlay">
+    <div class="card">
+      <h1 id="title">Westpine Night — Mobile & Weather</h1>
+      <p id="message">
+        Collect <b>8 key shards</b> hidden in classrooms. Press <b>E</b> (or the Combine button) to fuse shards into a <b>Master Key</b>, then reach the <b>front doors</b> to escape.<br/>
+        Hide in <b>lockers</b>, crawl through <b>crawlspaces</b>, hack <b>camera terminals</b>, and mind the <b>weather</b>.
+      </p>
+      <div>
+        <button id="play">Play</button>
+        <button id="retry" class="secondary" style="display:none">Retry</button>
+      </div>
     </div>
   </div>
-</div>
-<div id="alert">ALERT: Camera spotted you!</div>
 
-<script>
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-const W = canvas.width, H = canvas.height;
+  <div id="alert">ALERT: Camera spotted you!</div>
 
-const uiKeys = document.getElementById('keys');
-const uiStam = document.getElementById('stamina');
-const uiHidden = document.getElementById('hidden');
-const uiCams = document.getElementById('cams');
-const overlay = document.getElementById('overlay');
-const titleEl = document.getElementById('title');
-const msgEl = document.getElementById('message');
-const playBtn = document.getElementById('play');
-const retryBtn = document.getElementById('retry');
-const alertEl = document.getElementById('alert');
+  <!-- Mobile Controls -->
+  <div id="controls">
+    <div class="joystick" id="joy"><div class="stick" id="stick"></div></div>
+    <div class="buttons">
+      <div class="btn" id="btnSprint">Sprint</div>
+      <div class="btn" id="btnInteract">Interact</div>
+      <div class="btn" id="btnFlash">Flash</div>
+      <div class="btn" id="btnCombine">Combine</div>
+    </div>
+  </div>
+  <div class="progress" id="combineUI"><div class="bar" id="combineBar"></div></div>
 
-const TILE = 32;
+  <script>
+  // ====== Canvas + sizing ======
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  function fitCanvas() {
+    // Keep aspect ~ 16:9 but fill as much as possible
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let w = Math.min(window.innerWidth, 1280);
+    let h = Math.min(window.innerHeight - 56, 800);
+    const aspect = 16/9;
+    if (w / h > aspect) w = Math.floor(h * aspect);
+    else h = Math.floor(w / aspect);
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  window.addEventListener('resize', fitCanvas, {passive:true});
+  fitCanvas();
 
-// Map legend: 1=wall, 0=floor, 2=spawn, 4=key, 5=locker, 6=terminal, 7=exit, 8=crawlspace
-const MAP = [
-  // simplified for brevity; just add some 8's in classroom/corners
-  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-  [1,2,0,0,0,0,0,0,1,0,4,5,0,0,8,0,1,0,0,1],
-  [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,1,0,0,1],
-  [1,0,0,1,1,0,8,0,0,0,1,1,0,0,5,0,1,0,0,1],
-  [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
-  [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,7,1],
-  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-];
+  // ====== UI Refs ======
+  const uiKeys = document.getElementById('keys');
+  const uiMKey = document.getElementById('mkey');
+  const uiStam = document.getElementById('stamina');
+  const uiHidden = document.getElementById('hidden');
+  const uiCams = document.getElementById('cams');
+  const uiWX = document.getElementById('wx');
+  const overlay = document.getElementById('overlay');
+  const titleEl = document.getElementById('title');
+  const msgEl = document.getElementById('message');
+  const playBtn = document.getElementById('play');
+  const retryBtn = document.getElementById('retry');
+  const alertEl = document.getElementById('alert');
 
-const ROWS = MAP.length;
-const COLS = MAP[0].length;
+  // Mobile controls
+  const joy = document.getElementById('joy');
+  const stick = document.getElementById('stick');
+  const btnSprint = document.getElementById('btnSprint');
+  const btnInteract = document.getElementById('btnInteract');
+  const btnFlash = document.getElementById('btnFlash');
+  const btnCombine = document.getElementById('btnCombine');
+  const combineUI = document.getElementById('combineUI');
+  const combineBar = document.getElementById('combineBar');
 
-const keysToCollect = 8;
+  const TILE = 32;
 
-// Find all tiles of a type
-function findAllTiles(n){ 
-  const arr=[]; 
-  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===n) arr.push({x:c*TILE+TILE/2, y:r*TILE+TILE/2, r, c}); 
-  return arr; 
-}
+  // ====== MAP (40x24) ======
+  // Legend: 1=wall, 0=floor, 2=spawn, 5=locker, 6=terminal, 7=outside exit (front doors), 8=crawlspace, 9=classroom floor (eligible for key shard spawn)
+  const MAP = [
+  //0          5         10         15         20         25         30         35         40
+  //          |          |          |          |          |          |          |          |
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,2,0,0,0,0,0,0,1,9,9,9,9,1,0,0,0,0,0,1,9,9,9,9,1,0,0,0,0,0,1,9,9,9,9,1,0,0,7,1],
+  [1,0,0,1,1,0,0,0,1,9,5,9,9,1,0,0,0,6,0,1,9,9,9,9,1,0,0,0,6,0,1,9,5,9,9,1,0,0,0,1],
+  [1,0,0,1,1,0,5,0,1,9,9,9,9,1,0,1,1,1,0,1,9,9,9,9,1,0,1,1,1,0,1,9,9,9,9,1,0,5,0,1],
+  [1,0,0,0,0,0,0,0,1,9,9,9,9,1,0,0,0,0,0,1,9,9,9,9,1,0,0,0,0,0,1,9,9,9,9,1,0,0,0,1],
+  [1,0,1,1,0,1,1,0,1,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,1,0,1,1,1],
+  [1,0,0,0,0,0,0,0,0,9,9,9,0,0,0,0,0,0,0,0,9,9,9,0,0,0,0,0,0,0,0,9,9,9,0,0,0,0,0,1],
+  [1,0,1,1,0,1,1,0,1,9,9,9,0,1,1,1,0,1,1,0,9,9,9,0,1,1,1,0,1,1,0,9,9,9,0,1,1,0,0,1],
+  [1,0,8,0,0,0,0,8,1,9,9,9,0,1,0,0,0,0,1,0,9,9,9,0,1,0,0,0,0,1,0,9,9,9,0,1,0,0,0,1],
+  [1,0,0,0,5,0,0,0,1,1,1,1,0,1,0,6,0,0,1,0,1,1,1,0,1,0,6,0,0,1,0,1,1,1,0,1,0,0,0,1],
+  [1,0,0,1,1,0,0,0,1,9,9,9,0,1,0,0,0,0,1,0,9,9,9,0,1,0,0,0,0,1,0,9,9,9,0,1,0,0,0,1],
+  [1,0,0,1,1,0,1,0,1,9,9,9,0,1,0,1,1,1,1,0,9,9,9,0,1,0,1,1,1,1,0,9,9,9,0,1,0,1,0,1],
+  [1,0,0,0,0,0,1,0,1,9,9,9,0,1,0,0,0,0,0,0,9,9,9,0,1,0,0,0,0,0,0,9,9,9,0,1,0,0,0,1],
+  [1,0,1,1,1,0,1,0,1,1,1,1,0,1,0,1,1,1,0,1,1,1,1,0,1,0,1,1,1,0,1,1,1,1,0,1,0,1,1,1],
+  [1,0,0,0,0,0,0,0,1,9,9,9,9,1,0,0,0,0,0,1,9,9,9,9,1,0,0,0,0,0,1,9,9,9,9,1,0,0,0,1],
+  [1,0,0,6,0,0,0,0,1,9,5,9,9,1,0,0,0,5,0,1,9,9,9,9,1,0,0,0,5,0,1,9,5,9,9,1,0,0,0,1],
+  [1,0,1,1,1,1,0,1,1,9,9,9,9,1,0,1,1,1,0,1,9,9,9,9,1,0,1,1,1,0,1,9,9,9,9,1,0,1,1,1],
+  [1,0,0,0,0,0,0,0,0,9,9,9,9,1,0,0,0,0,0,0,9,9,9,9,1,0,0,0,0,0,0,9,9,9,9,1,0,0,0,1],
+  [1,0,1,1,1,1,0,1,1,1,1,1,9,1,0,1,1,1,0,1,1,1,1,9,1,0,1,1,1,0,1,1,1,1,9,1,0,1,1,1],
+  [1,0,0,0,0,0,0,0,0,0,0,9,9,1,0,0,0,0,0,0,0,0,0,9,1,0,0,0,0,0,0,0,0,0,9,1,0,0,0,1],
+  [1,0,0,8,0,0,0,0,0,0,0,9,9,1,0,0,8,0,0,0,0,0,0,9,1,0,0,0,0,0,0,0,8,0,9,1,0,0,0,1],
+  [1,0,0,0,0,5,0,0,0,0,0,9,9,1,0,0,0,0,0,0,0,5,0,9,1,0,0,0,0,0,0,0,0,0,9,1,0,0,0,1],
+  [1,0,1,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,0,1,1,1,0,1,1,1,1,0,1,0,1,1,1],
+  [1,0,0,0,0,0,0,0,0,1,0,9,9,9,0,0,0,0,0,1,0,9,9,9,0,0,0,0,0,1,0,9,9,9,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+  ];
+  const ROWS = MAP.length;
+  const COLS = MAP[0].length;
 
-const spawn = findAllTiles(2)[0];
-const exitDoor = findAllTiles(7)[0];
+  // ====== Utility ======
+  const clamp = (v,mi,ma)=>Math.max(mi, Math.min(ma, v));
+  const dist = (a,b)=>Math.hypot(a.x-b.x, a.y-b.y);
+  const angTo = (a,b)=>Math.atan2(b.y-a.y, b.x-a.x);
+  const normalizeAngle = (a)=>{ while(a>Math.PI)a-=2*Math.PI; while(a<-Math.PI)a+=2*Math.PI; return a; };
 
-const player = { x: spawn.x, y: spawn.y, r: 12, speed: 2.1, sprint: 3.3, vx:0, vy:0, stamina: 100, flashlight:false, facing:0, hidden:false, inCrawlspace:false };
-const enemy = { x: spawn.x+200, y: spawn.y+40, r:14, speed:1.85, fov: Math.PI/4.5, baseRange: 260, alert:false, target:null, patrol:[{x:TILE*2,y:TILE*1},{x:TILE*15,y:TILE*1},{x:TILE*15,y:TILE*5},{x:TILE*2,y:TILE*5}], patrolIndex:0, cooldown:0, fakeoutTimer:0 };
-
-// Keys, lockers, terminals, crawlspaces
-let keys=[], lockers=[], terminals=[], crawlspaces=[];
-for(let r=0;r<ROWS;r++){
-  for(let c=0;c<COLS;c++){
+  function tileAt(x,y){
+    const c = Math.floor(x / TILE), r = Math.floor(y / TILE);
+    if(r<0||r>=ROWS||c<0||c>=COLS) return 1; // outside
     const t = MAP[r][c];
-    const obj={x:c*TILE+TILE/2,y:r*TILE+TILE/2, taken:false};
-    if(t===4) keys.push({...obj});
-    if(t===5) lockers.push({...obj});
-    if(t===6) terminals.push({...obj});
-    if(t===8) crawlspaces.push({...obj});
+    // Treat 9 as floor
+    return (t===9)?0:t;
   }
-}
-
-// Cameras
-const cameras = [
-  {x:TILE*4, y:TILE*1, range:240, fov:Math.PI/5, angle:0, min:-Math.PI/3, max:Math.PI/3, dir:1, speed:0.01, cooldown:0},
-];
-
-// Weather
-const weathers = ["clear","rain","fog","storm"];
-let currentWeather = weathers[Math.floor(Math.random()*weathers.length)];
-
-// Systems
-let heldKeys=0, running=false, gameOver=false, won=false, camAlertTimer=0, camerasDisabledTimer=0;
-let lightLevel=1, flickerTimer=0, blackoutTimer=0;
-
-const HEAR_RANGE = 280;
-const input = { up:false, down:false, left:false, right:false, sprint:false, interact:false };
-onkeydown = e => { if(e.key==='ArrowUp'||e.key==='w') input.up=true; if(e.key==='ArrowDown'||e.key==='s') input.down=true; if(e.key==='ArrowLeft'||e.key==='a') input.left=true; if(e.key==='ArrowRight'||e.key==='d') input.right=true; if(e.key==='Shift') input.sprint=true; if(e.key==='f'||e.key==='F') player.flashlight=!player.flashlight; if(e.key==='e'||e.key==='E') input.interact=true; }
-onkeyup = e => { if(e.key==='ArrowUp'||e.key==='w') input.up=false; if(e.key==='ArrowDown'||e.key==='s') input.down=false; if(e.key==='ArrowLeft'||e.key==='a') input.left=false; if(e.key==='ArrowRight'||e.key==='d') input.right=false; if(e.key==='Shift') input.sprint=false; if(e.key==='e'||e.key==='E') input.interact=false; }
-
-function tileAt(x,y){ const c=Math.floor(x/TILE), r=Math.floor(y/TILE); if(r<0||r>=ROWS||c<0||c>=COLS) return 1; return MAP[r][c]; }
-function collideCircleWalls(obj){ if(tileAt(obj.x+obj.vx+Math.sign(obj.vx)*obj.r,obj.y)===1)obj.vx=0; if(tileAt(obj.x,obj.y+obj.vy+Math.sign(obj.vy)*obj.r)===1)obj.vy=0; if(tileAt(obj.x+Math.sign(obj.vx)*obj.r,obj.y+Math.sign(obj.vy)*obj.r)===1){obj.vx=0; obj.vy=0;} }
-function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
-function angle(a,b){ return Math.atan2(b.y-a.y,b.x-a.x); }
-function showAlert(msg, t=120){ alertEl.innerText=msg; alertEl.style.display='block'; setTimeout(()=>alertEl.style.display='none',t*10); }
-
-function handlePlayer(){
-  let spd = input.sprint && player.stamina>0 ? player.sprint : player.speed;
-  if(input.up) player.vy=-spd; else if(input.down) player.vy=spd; else player.vy=0;
-  if(input.left) player.vx=-spd; else if(input.right) player.vx=spd; else player.vx=0;
-  if(player.vx && player.vy){ player.vx*=0.707; player.vy*=0.707; }
-  collideCircleWalls(player);
-  player.x += player.vx; player.y += player.vy;
-
-  // Sprint stamina
-  if(input.sprint && (player.vx||player.vy)) player.stamina=Math.max(0,player.stamina-0.35); else player.stamina=Math.min(100,player.stamina+0.25);
-
-  // Interact with lockers/crawlspaces
-  if(input.interact){
-    let hidden=false;
-    lockers.forEach(l=>{
-      if(!l.taken && dist(player,l)<TILE/1.5){ player.hidden=!player.hidden; hidden=true; }
-    });
-    crawlspaces.forEach(c=>{
-      if(dist(player,c)<TILE/1.5){ player.inCrawlspace=!player.inCrawlspace; player.hidden=player.inCrawlspace; hidden=true; }
-    });
-    input.interact=false;
-    if(hidden) showAlert("You hide somewhere dark...");
+  function findTile(n){ for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(MAP[r][c]===n) return {x:c*TILE+TILE/2, y:r*TILE+TILE/2}; return {x:TILE*2,y:TILE*2}; }
+  function findAllTiles(n){ const arr=[]; for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===n) arr.push({x:c*TILE+TILE/2,y:r*TILE+TILE/2,r,c}); return arr; }
+  function collideCircleWalls(obj){
+    if(tileAt(obj.x+obj.vx+Math.sign(obj.vx)*obj.r, obj.y)===1) obj.vx=0;
+    if(tileAt(obj.x, obj.y+obj.vy+Math.sign(obj.vy)*obj.r)===1) obj.vy=0;
+    // treat crawlspace walls as normal walls for collision shape
+    if(tileAt(obj.x+Math.sign(obj.vx)*obj.r, obj.y+Math.sign(obj.vy)*obj.r)===1){ obj.vx=0; obj.vy=0; }
   }
 
-  // Collect keys
-  keys.forEach(k=>{
-    if(!k.taken && dist(player,k)<TILE/1.5){ k.taken=true; heldKeys++; showAlert("Key collected!"); }
-  });
+  // ====== Entities ======
+  const spawn = findTile(2);
+  const exitDoor = findAllTiles(7)[0];
 
-  uiKeys.innerText=heldKeys;
-  uiStam.innerText=Math.floor(player.stamina);
-  uiHidden.innerText=player.hidden?'Yes':'No';
-}
+  const player = { x:spawn.x, y:spawn.y, r:12, speed:2.1, sprint:3.3, vx:0, vy:0, stamina:100, flashlight:false, facing:0, hidden:false, inCrawl:false, hasMaster:false };
+  const enemy  = { x: spawn.x+240, y: spawn.y+40, r:14, speed:1.85, fov: Math.PI/4.5, baseRange:260, alert:false, target:null, patrol:[], patrolIndex:0, cooldown:0, fakeoutTimer:0 };
 
-function drawMap(){
-  for(let r=0;r<ROWS;r++){
-    for(let c=0;c<COLS;c++){
-      const t = MAP[r][c];
-      let color='#101018';
-      if(t===1) color='#202030';
-      if(t===4&&!keys.find(k=>k.r===r && k.c===c)?.taken) color='#f5d700';
-      if(t===5) color='#336633';
-      if(t===6) color='#8844cc';
-      if(t===7) color='#222288';
-      if(t===8) color='#885522';
-      ctx.fillStyle=color;
-      ctx.fillRect(c*TILE,r*TILE,TILE,TILE);
+  // Patrol loop around main halls
+  enemy.patrol = [
+    {x:TILE*6,  y:TILE*3}, {x:TILE*6,  y:TILE*9}, {x:TILE*6,  y:TILE*15}, {x:TILE*6,  y:TILE*21},
+    {x:TILE*20, y:TILE*21},{x:TILE*34, y:TILE*21},{x:TILE*34, y:TILE*15},{x:TILE*34, y:TILE*9},
+    {x:TILE*34, y:TILE*3}, {x:TILE*20, y:TILE*3}
+  ];
+
+  // Interactive props
+  const lockers = findAllTiles(5);
+  const terminals = findAllTiles(6);
+  const crawlTiles = findAllTiles(8); // for drawing
+  // Classroom candidate tiles for key shards = tile 9
+  const classroomSpots = findAllTiles(9);
+
+  // Cameras (some sweeping angles)
+  const cameras = [
+    {x:TILE*12.5, y:TILE*2.5, range:260, fov:Math.PI/5, angle:0, min:-0.9, max:0.9, dir:1, speed:0.01, cooldown:0},
+    {x:TILE*20.5, y:TILE*10.5, range:260, fov:Math.PI/5, angle:Math.PI, min:Math.PI-1.0, max:Math.PI+1.0, dir:1, speed:0.014, cooldown:0},
+    {x:TILE*30.5, y:TILE*6.5,  range:230, fov:Math.PI/6, angle:-Math.PI/2, min:-Math.PI/2-0.8, max:-Math.PI/2+0.8, dir:1, speed:0.010, cooldown:0},
+    {x:TILE*9.5,  y:TILE*16.5, range:230, fov:Math.PI/6, angle:Math.PI/2, min:Math.PI/2-0.8, max:Math.PI/2+0.8, dir:1, speed:0.012, cooldown:0},
+  ];
+
+  // ====== Systems ======
+  let running=false, won=false;
+  let heldShards=0;
+  let camAlertTimer=0, camerasDisabledTimer=0;
+
+  // Weather
+  const WEATHER = ['Clear','Rain','Storm','Fog'];
+  const weather = WEATHER[(Math.random()*WEATHER.length)|0];
+  uiWX.textContent = weather;
+  const rain = []; // particle list
+  let thunderTimer = 0;
+  function initWeather(){
+    if(weather==='Rain' || weather==='Storm'){
+      for(let i=0;i<160;i++){
+        rain.push({x:Math.random()*COLS*TILE, y:Math.random()*ROWS*TILE, vx:2, vy:8 + Math.random()*4});
+      }
+    }
+    if(weather==='Storm'){ thunderTimer = 600 + (Math.random()*600)|0; }
+  }
+  initWeather();
+
+  // Lighting
+  let lightLevel = 1;
+  let flickerTimer=0, blackoutTimer=0, flashStorm=0;
+
+  // Hearing
+  const HEAR_RANGE = 280;
+
+  // Key shards (8) — choose random distinct classroom tiles
+  let shards = [];
+  function scatterShards() {
+    shards = [];
+    const picks = classroomSpots.slice();
+    // Shuffle
+    for(let i=picks.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [picks[i],picks[j]]=[picks[j],picks[i]]; }
+    for(let i=0;i<8 && i<picks.length;i++){
+      const p = picks[i];
+      shards.push({x:p.x, y:p.y, taken:false});
     }
   }
-}
 
-function draw
+  // Camera scroll
+  const cam = { x:0, y:0 };
+  function centerCam(){
+    cam.x = clamp(player.x - canvas.width/2, 0, COLS*TILE - canvas.width);
+    cam.y = clamp(player.y - canvas.height/2, 0, ROWS*TILE - canvas.height);
+  }
+
+  // ====== Vision helpers ======
+  function canSeeCone(from,to, angleCenter, fov, maxDist){
+    const ang = angTo(from,to);
+    if(Math.abs(normalizeAngle(ang - angleCenter)) > fov/2) return false;
+    const d = dist(from, to); if(d>maxDist) return false;
+    // Raycast coarse
+    const steps = Math.ceil(d/6);
+    for(let i=1;i<=steps;i++){
+      const px = from.x + (to.x-from.x)*(i/steps);
+      const py = from.y + (to.y-from.y)*(i/steps);
+      if(tileAt(px,py)===1) return false;
+    }
+    return true;
+  }
+  function enemyFacing(e){ if(e.target) return angTo(e, e.target); const next=e.patrol[e.patrolIndex % e.patrol.length]; return angTo(e,next); }
+  function canEnemySeePlayer(){
+    if(player.hidden || player.inCrawl) return false;
+    const ambient = (blackoutTimer>0?0.6:(0.8 + 0.2*lightLevel)) * (weather==='Fog'?0.75:1);
+    const baseRange = enemy.baseRange * ambient * (player.flashlight?1.15:1);
+    return canSeeCone(enemy, player, enemyFacing(enemy), enemy.fov, baseRange);
+  }
+
+  // ====== Input (KB + Mobile) ======
+  const input = { up:false, down:false, left:false, right:false, sprint:false, interact:false, combine:false };
+
+  onkeydown = e => {
+    if(e.repeat) return;
+    const k = e.key;
+    if(k==='ArrowUp'||k==='w' || k==='W') input.up=true;
+    if(k==='ArrowDown'||k==='s' || k==='S') input.down=true;
+    if(k==='ArrowLeft'||k==='a' || k==='A') input.left=true;
+    if(k==='ArrowRight'||k==='d' || k==='D') input.right=true;
+    if(k==='Shift') input.sprint=true;
+    if(k==='f' || k==='F') player.flashlight = !player.flashlight;
+    if(k==='e' || k==='E') input.interact = true;
+    if(k==='c' || k==='C') input.combine = true;
+  };
+  onkeyup = e => {
+    const k = e.key;
+    if(k==='ArrowUp'||k==='w' || k==='W') input.up=false;
+    if(k==='ArrowDown'||k==='s' || k==='S') input.down=false;
+    if(k==='ArrowLeft'||k==='a' || k==='A') input.left=false;
+    if(k==='ArrowRight'||k==='d' || k==='D') input.right=false;
+    if(k==='Shift') input.sprint=false;
+    if(k==='e' || k==='E') input.interact = false;
+    if(k==='c' || k==='C') input.combine = false;
+  };
+
+  // Mobile joystick
+  let joyActive=false, joyCenter=null, joyVec={x:0,y:0};
+  function joyStart(e){
+    joyActive=true;
+    const rect=joy.getBoundingClientRect();
+    joyCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+    joyMove(e);
+  }
+  function joyMove(e){
+    if(!joyActive) return;
+    const t = (e.changedTouches? e.changedTouches[0] : e);
+    const dx = t.clientX - joyCenter.x;
+    const dy = t.clientY - joyCenter.y;
+    const m = Math.hypot(dx,dy);
+    const r = 56;
+    const nx = m>0 ? dx / Math.max(m,1) : 0;
+    const ny = m>0 ? dy / Math.max(m,1) : 0;
+    const mag = clamp(m / r, 0, 1);
+    joyVec.x = nx * mag;
+    joyVec.y = ny * mag;
+    stick.style.transform = `translate(${nx* Math.min(m,r)}px, ${ny* Math.min(m,r)}px) translate(-50%,-50%)`;
+    // Map to digital inputs for consistency
+    input.left = joyVec.x < -0.25;
+    input.right = joyVec.x >  0.25;
+    input.up = joyVec.y < -0.25;
+    input.down = joyVec.y >  0.25;
+  }
+  function joyEnd(){
+    joyActive=false; joyVec.x=joyVec.y=0;
+    input.left=input.right=input.up=input.down=false;
+    stick.style.transform='translate(-50%,-50%)';
+  }
+  // Bind touch
+  ['touchstart','pointerdown'].forEach(ev=>joy.addEventListener(ev,joyStart,{passive:false}));
+  ['touchmove','pointermove'].forEach(ev=>joy.addEventListener(ev,joyMove,{passive:false}));
+  ['touchend','pointerup','pointercancel'].forEach(ev=>joy.addEventListener(ev,joyEnd,{passive:false}));
+
+  // Mobile buttons
+  function pressHold(btn, on, off){
+    let down=false;
+    const downFn = e=>{ e.preventDefault(); down=true; on(); };
+    const upFn   = e=>{ e.preventDefault(); down=false; off&&off(); };
+    ['touchstart','pointerdown'].forEach(ev=>btn.addEventListener(ev,downFn,{passive:false}));
+    ['touchend','pointerup','pointercancel'].forEach(ev=>btn.addEventListener(ev,upFn,{passive:false}));
+  }
+  pressHold(btnSprint, ()=>{ input.sprint=true; }, ()=>{ input.sprint=false; });
+  pressHold(btnInteract, ()=>{ input.interact=true; }, ()=>{ input.interact=false; });
+  pressHold(btnCombine, ()=>{ input.combine=true; }, ()=>{ input.combine=false; });
+  btnFlash.addEventListener('click', ()=>{ player.flashlight=!player.flashlight; }, {passive:true});
+
+  // ====== Interactions ======
+  function near(list, radius=26){ for(const p of list){ if(dist(player,p)<radius) return p; } return null; }
+  function nearExit(){ return dist(player, exitDoor) < 28; }
+
+  // Combine progress
+  let combineTime=0; // 0..120 frames (~2s)
+  function beginCombine() {
+    if(player.hasMaster || heldShards<8) return;
+    combineUI.style.display='block';
+  }
+  function endCombine(success){
+    combineUI.style.display='none';
+    combineTime=0;
+    if(success){ player.hasMaster=true; uiMKey.textContent='Yes'; }
+  }
+
+  function tryInteract(){
+    // Exit
+    if(player.hasMaster && nearExit()){ won=true; endGame(); return; }
+
+    // Toggle hiding in locker
+    if(player.hidden){ player.hidden=false; player.flashlight=false; uiHidden.textContent='No'; return; }
+    const locker = near(lockers, 26);
+    if(locker){ player.hidden=true; player.vx=player.vy=0; player.flashlight=false; uiHidden.textContent='Yes'; return; }
+
+    // Terminals disable cameras 30s
+    const term = near(terminals, 28);
+    if(term){ camerasDisabledTimer = 60*30; uiCams.textContent='Offline'; return; }
+  }
+
+  // ====== Reset / Start ======
+  function reset(){
+    player.x=spawn.x; player.y=spawn.y; player.stamina=100; player.flashlight=false; player.hidden=false; player.inCrawl=false; player.hasMaster=false;
+    heldShards=0; uiKeys.textContent='0'; uiMKey.textContent='No';
+    scatterShards();
+    enemy.x = spawn.x+240; enemy.y = spawn.y+40; enemy.alert=false; enemy.target=null; enemy.patrolIndex=0; enemy.cooldown=0; enemy.fakeoutTimer=0;
+    camAlertTimer=0; alertEl.style.display='none';
+    camerasDisabledTimer=0; uiCams.textContent='Online';
+    lightLevel=1; flickerTimer=0; blackoutTimer=0; flashStorm=0;
+    running=true; won=false;
+    overlay.style.display='none';
+    retryBtn.style.display='none';
+    centerCam();
+  }
+  playBtn.onclick = ()=>reset();
+  retryBtn.onclick = ()=>reset();
+  overlay.style.display='flex';
+
+  // ====== Game Loop ======
+  function update(){
+    requestAnimationFrame(update);
+    centerCam();
+    if(!running){ draw(); return; }
+
+    // Weather updates
+    if(weather==='Rain' || weather==='Storm'){
+      for(const p of rain){
+        p.x += p.vx; p.y += p.vy;
+        if(p.x<0 || p.y<0 || p.x>COLS*TILE || p.y>ROWS*TILE){
+          p.x = Math.random()*COLS*TILE;
+          p.y = -10;
+        }
+      }
+      if(weather==='Storm'){
+        if(thunderTimer>0) thunderTimer--;
+        else { flashStorm = 8 + (Math.random()*10)|0; thunderTimer = 480 + (Math.random()*720)|0; }
+        if(flashStorm>0){ flashStorm--; }
+      }
+    }
+
+    // Lighting flicker/blackouts (mildly stronger in storm)
+    if(blackoutTimer>0){ blackoutTimer--; lightLevel=0.25; }
+    else {
+      if(flickerTimer>0){ flickerTimer--; lightLevel = 0.7 + Math.random()*0.2; }
+      else { lightLevel = 1; if(Math.random()<0.003) flickerTimer=40; if(Math.random()<(weather==='Storm'?0.0015:0.0008)) blackoutTimer=180; }
+    }
+
+    // Input actions
+    if(input.interact){ tryInteract(); input.interact=false; }
+
+    // Combine progress (hold button/key)
+    if(input.combine && !player.hasMaster && heldShards>=8 && !player.hidden){
+      if(combineTime===0) beginCombine();
+      combineTime = Math.min(120, combineTime+1);
+      combineBar.style.width = (combineTime/120*100).toFixed(1)+'%';
+      if(combineTime>=120){ endCombine(true); }
+    } else {
+      if(combineTime>0){ endCombine(false); }
+    }
+
+    // Player movement (crawlspace auto-hide & slow)
+    const crawlHere = tileAt(player.x, player.y)===8;
+    player.inCrawl = crawlHere;
+    if(crawlHere) player.hidden = true; // auto hidden
+    else if(!player.hidden) player.hidden=false;
+
+    if(!player.hidden || crawlHere){ // allow movement in crawl too
+      let spd = (input.sprint && player.stamina>0 && !crawlHere) ? player.sprint : player.speed * (crawlHere?0.75:1);
+      // joystick analog add to digital for smoothness
+      const ax = joyVec.x, ay = joyVec.y;
+      let vx = ((input.right?1:0) - (input.left?1:0)) + ax;
+      let vy = ((input.down?1:0)  - (input.up?1:0)) + ay;
+      // normalize
+      const mag = Math.hypot(vx,vy);
+      if(mag>1) { vx/=mag; vy/=mag; }
+      player.vx = vx * spd;
+      player.vy = vy * spd;
+
+      // stamina
+      const moving = (Math.abs(player.vx)+Math.abs(player.vy))>0.01;
+      if(input.sprint && moving && !crawlHere) player.stamina = Math.max(0, player.stamina - 0.25);
+      else player.stamina = Math.min(100, player.stamina + (player.hidden?0.4:0.15));
+
+      collideCircleWalls(player);
+      player.x += player.vx; player.y += player.vy;
+      if(moving) player.facing = Math.atan2(player.vy, player.vx);
+
+      // noise from sprinting
+      if(input.sprint && moving && !crawlHere){
+        if(dist(player, enemy) < HEAR_RANGE){ enemy.alert=true; enemy.target={x:player.x,y:player.y}; enemy.cooldown=180; }
+      }
+    }
+
+    // Collect shards
+    for(const k of shards){ if(!k.taken && dist(player,k)<18){ k.taken=true; heldShards++; uiKeys.textContent = heldShards; } }
+
+    // Cameras
+    if(camerasDisabledTimer>0){ camerasDisabledTimer--; if(camerasDisabledTimer===0) uiCams.textContent='Online'; }
+    for(const camObj of cameras){
+      camObj.angle += camObj.speed * camObj.dir;
+      if(camObj.angle>camObj.max){ camObj.angle=camObj.max; camObj.dir*=-1; }
+      if(camObj.angle<camObj.min){ camObj.angle=camObj.min; camObj.dir*=-1; }
+
+      if(player.hidden || player.inCrawl) continue;
+      if(camerasDisabledTimer>0) continue;
+      if(canSeeCone(camObj, player, camObj.angle, camObj.fov, camObj.range)){
+        camObj.cooldown = 180;
+        camAlertTimer = 60; alertEl.style.display='block';
+        enemy.alert = true; enemy.target = {x: player.x, y: player.y}; enemy.cooldown = 300;
+      } else if(camObj.cooldown>0) camObj.cooldown--;
+    }
+    if(camAlertTimer>0){ camAlertTimer--; if(camAlertTimer===0) alertEl.style.display='none'; }
+
+    // Enemy AI
+    const seen = canEnemySeePlayer();
+    if(!enemy.alert && !player.hidden){
+      const toP = angTo(enemy, player);
+      const face = enemyFacing(enemy);
+      const behind = Math.abs(normalizeAngle(toP - face)) > Math.PI*0.7;
+      if(behind && dist(player, enemy) < 140){ if(enemy.fakeoutTimer<=0) enemy.fakeoutTimer=60; }
+    }
+    if(seen){ enemy.alert=true; enemy.target={x:player.x,y:player.y}; enemy.cooldown=240; enemy.fakeoutTimer=0; }
+    else { if(enemy.cooldown>0) enemy.cooldown--; else enemy.alert=false; }
+
+    if(enemy.alert){
+      const a = angTo(enemy, enemy.target);
+      const spd = enemy.speed + 0.4;
+      enemy.x += Math.cos(a)*spd; enemy.y += Math.sin(a)*spd;
+      if(dist(enemy, enemy.target) < 12) enemy.alert=false;
+    } else {
+      if(enemy.fakeoutTimer>0){
+        enemy.fakeoutTimer--;
+        const prev = (enemy.patrolIndex-1+enemy.patrol.length)%enemy.patrol.length;
+        const wp = enemy.patrol[prev]; const a = angTo(enemy, wp);
+        enemy.x += Math.cos(a)*(enemy.speed+0.8); enemy.y += Math.sin(a)*(enemy.speed+0.8);
+        if(dist(enemy, wp)<14 || enemy.fakeoutTimer===0) enemy.patrolIndex=prev;
+      } else {
+        const wp = enemy.patrol[enemy.patrolIndex%enemy.patrol.length]; const a = angTo(enemy, wp);
+        enemy.x += Math.cos(a)*enemy.speed; enemy.y += Math.sin(a)*enemy.speed;
+        if(dist(enemy, wp)<12) enemy.patrolIndex=(enemy.patrolIndex+1)%enemy.patrol.length;
+        if(Math.random()<0.0015) enemy.fakeoutTimer=50;
+      }
+    }
+    enemy.vx=enemy.vy=0; collideCircleWalls(enemy);
+
+    // Caught?
+    if(!player.hidden && !player.inCrawl && dist(player, enemy) < 16){ endGame(); }
+
+    // UI
+    uiStam.textContent = `${Math.round(player.stamina)}`;
+    uiHidden.textContent = (player.hidden || player.inCrawl) ? 'Yes' : 'No';
+    if(camerasDisabledTimer>0) uiCams.textContent = `Offline ${Math.ceil(camerasDisabledTimer/60)}s`;
+
+    draw();
+  }
+
+  function endGame(){
+    running=false;
+    overlay.style.display='flex';
+    retryBtn.style.display='inline-block';
+    playBtn.style.display='none';
+    titleEl.textContent = won ? "You Escaped Westpine" : "Caught by Mr. Johnson";
+    msgEl.textContent = won
+      ? 'The front doors slam behind you. Rain hisses. Westpine watches.'
+      : 'Detention… forever. Tips: crawlspaces auto-hide, sprint in bursts, hack terminals, watch weather and camera sweeps.';
+  }
+
+  function draw(){
+    const W = canvas.width, H = canvas.height;
+
+    // Background
+    ctx.fillStyle = '#07070b';
+    ctx.fillRect(0,0,W,H);
+
+    // Visible tile bounds
+    const c0 = Math.max(0, Math.floor(cam.x / TILE) - 1);
+    const r0 = Math.max(0, Math.floor(cam.y / TILE) - 1);
+    const c1 = Math.min(COLS-1, Math.ceil((cam.x+W) / TILE) + 1);
+    const r1 = Math.min(ROWS-1, Math.ceil((cam.y+H) / TILE) + 1);
+
+    // World tiles
+    for(let r=r0;r<=r1;r++){
+      for(let c=c0;c<=c1;c++){
+        const t = MAP[r][c]===9 ? 0 : MAP[r][c];
+        const x = c*TILE - cam.x, y = r*TILE - cam.y;
+        if(t===1){
+          ctx.fillStyle = '#161622';
+          ctx.fillRect(x,y,TILE,TILE);
+        } else {
+          ctx.fillStyle = '#0f0f18';
+          ctx.fillRect(x,y,TILE,TILE);
+          ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+          ctx.strokeRect(x+0.5,y+0.5,TILE-1,TILE-1);
+        }
+        if(MAP[r][c]===9){ // classroom floor tint
+          ctx.fillStyle = 'rgba(80,80,120,0.06)';
+          ctx.fillRect(x,y,TILE,TILE);
+        }
+        if(MAP[r][c]===8){ // crawlspace
+          ctx.fillStyle = '#0b0b10';
+          ctx.fillRect(x+4,y+4,TILE-8,TILE-8);
+          ctx.strokeStyle = 'rgba(120,180,200,0.2)';
+          ctx.strokeRect(x+4.5,y+4.5,TILE-9,TILE-9);
+        }
+        if(MAP[r][c]===5){ // locker
+          ctx.fillStyle = '#1b3b6f';
+          ctx.fillRect(x+4,y+4,TILE-8,TILE-8);
+          ctx.fillStyle = '#8bb5ff';
+          ctx.fillRect(x+TILE-10,y+TILE/2-3,6,6);
+        }
+        if(MAP[r][c]===6){ // terminal
+          ctx.fillStyle = camerasDisabledTimer>0 ? '#2a823a' : '#4062b2';
+          ctx.fillRect(x+6,y+6,TILE-12,TILE-12);
+          ctx.fillStyle = '#0b0b10'; ctx.fillRect(x+10,y+10,TILE-20,TILE-20);
+        }
+        if(MAP[r][c]===7){ // front doors
+          ctx.fillStyle = (player.hasMaster?'#3fa370':'#704040');
+          ctx.fillRect(x+2,y+2,TILE-4,TILE-4);
+        }
+      }
+    }
+
+    // Shards
+    for(const k of shards){
+      if(k.taken) continue;
+      const sx=k.x - cam.x, sy=k.y - cam.y;
+      if(sx<-20||sy<-20||sx>W+20||sy>H+20) continue;
+      ctx.fillStyle='#e8c547';
+      ctx.beginPath(); ctx.arc(sx,sy,6,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='rgba(255,255,180,0.2)';
+      ctx.beginPath(); ctx.arc(sx,sy,10,0,Math.PI*2); ctx.fill();
+    }
+
+    // Cameras (beams)
+    for(const camObj of cameras){
+      const sx=camObj.x - cam.x, sy=camObj.y - cam.y;
+      if(camerasDisabledTimer<=0){
+        ctx.save();
+        ctx.fillStyle = 'rgba(80,140,255,0.08)';
+        drawCone(sx, sy, camObj.angle, camObj.fov, camObj.range);
+        ctx.restore();
+      }
+      // body
+      ctx.fillStyle = camerasDisabledTimer>0 ? '#2a823a' : '#4a73c2';
+      ctx.beginPath();
+      ctx.moveTo(sx+Math.cos(camObj.angle)*10, sy+Math.sin(camObj.angle)*10);
+      ctx.lineTo(sx+Math.cos(camObj.angle+0.8)*10, sy+Math.sin(camObj.angle+0.8)*10);
+      ctx.lineTo(sx+Math.cos(camObj.angle-0.8)*10, sy+Math.sin(camObj.angle-0.8)*10);
+      ctx.closePath(); ctx.fill();
+      if(camObj.cooldown>0 && camerasDisabledTimer<=0){
+        ctx.fillStyle='#ff5d5d'; ctx.beginPath(); ctx.arc(sx,sy,3,0,Math.PI*2); ctx.fill();
+      }
+    }
+
+    // Enemy FOV
+    const face = enemyFacing(enemy);
+    const ambient = (blackoutTimer>0?0.6:(0.8 + 0.2*lightLevel))*(weather==='Fog'?0.75:1);
+    const eRange = enemy.baseRange * ambient;
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,80,80,0.08)';
+    drawCone(enemy.x - cam.x, enemy.y - cam.y, face, enemy.fov, eRange);
+    ctx.restore();
+
+    // Player flashlight
+    if(player.flashlight && !player.hidden){
+      ctx.save();
+      ctx.globalCompositeOperation='lighter';
+      ctx.fillStyle='rgba(180,180,200,0.12)';
+      drawCone(player.x - cam.x, player.y - cam.y, player.facing, Math.PI/5, 240);
+      ctx.restore();
+    }
+
+    // Darkness + fog + storm flash
+    let dark = clamp(0.55 + (1-lightLevel)*0.6, 0, 0.95);
+    if(weather==='Fog') dark = Math.min(0.80, dark + 0.10);
+    ctx.fillStyle = `rgba(0,0,0,${dark})`;
+    ctx.fillRect(0,0,W,H);
+    if(weather==='Fog'){
+      ctx.fillStyle='rgba(200,200,220,0.06)';
+      ctx.fillRect(0,0,W,H);
+    }
+    if(flashStorm>0){
+      ctx.fillStyle = `rgba(220,240,255,${0.12 + 0.04*Math.random()})`;
+      ctx.fillRect(0,0,W,H);
+    }
+
+    // Rain particles
+    if(weather==='Rain' || weather==='Storm'){
+      ctx.strokeStyle='rgba(180,180,255,0.25)';
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      for(const p of rain){
+        const x = p.x - cam.x, y = p.y - cam.y;
+        if(x<-10||y<-10||x>W+10||y>H+10) continue;
+        ctx.moveTo(x,y); ctx.lineTo(x-3,y-8);
+      }
+      ctx.stroke();
+    }
+
+    // Entities
+    // Player
+    if(!player.hidden){
+      ctx.fillStyle = '#8bb5ff';
+      ctx.beginPath(); ctx.arc(player.x - cam.x, player.y - cam.y, player.r, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Mr. Johnson (stylized)
+    ctx.fillStyle = '#4b3424';
+    ctx.beginPath(); ctx.arc(enemy.x - cam.x, enemy.y - cam.y, enemy.r+1, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#141414';
+    ctx.beginPath();
+    ctx.arc(enemy.x - cam.x, enemy.y - cam.y + 2, enemy.r-2, Math.PI*0.15, Math.PI-0.15);
+    ctx.lineTo(enemy.x - cam.x, enemy.y - cam.y + 3);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#0d0d0d'; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(enemy.x - cam.x, enemy.y - cam.y + 1, enemy.r-6, Math.PI*0.05, Math.PI-0.05);
+    ctx.stroke();
+
+    if(enemy.alert){
+      ctx.fillStyle='#ff5d5d';
+      ctx.beginPath(); ctx.arc(enemy.x - cam.x, enemy.y - cam.y - enemy.r - 10, 4, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  function drawCone(x,y,angleCenter, angleWidth, radius){
+    ctx.beginPath();
+    ctx.moveTo(x,y);
+    ctx.arc(x,y, radius, angleCenter - angleWidth/2, angleCenter + angleWidth/2);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Start loop
+  requestAnimationFrame(update);
+  </script>
+</body>
+</html>
