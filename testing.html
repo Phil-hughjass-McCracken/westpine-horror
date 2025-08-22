@@ -1,0 +1,180 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Westpine Night — 3.0</title>
+<style>
+html, body { height: 100%; margin: 0; background:#0a0a0f; color:#e6e6f0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; }
+#ui { position: fixed; inset: 0 0 auto 0; display:flex; gap:12px; align-items:center; padding:10px 14px; background: linear-gradient(180deg, rgba(10,10,15,.9), rgba(10,10,15,.25)); backdrop-filter: blur(4px); z-index: 10; }
+#ui .pill { padding:4px 10px; border-radius:14px; background:#1b1b25; border:1px solid #2b2b38; box-shadow: inset 0 0 0 1px rgba(255,255,255,.03); font-size: 14px; }
+#ui .right { margin-left:auto; opacity:.95 }
+#ui .inv { display:flex; gap:8px; align-items:center; }
+#game { display:block; margin:0 auto; image-rendering: pixelated; }
+#overlay { position: fixed; inset:0; display:none; align-items:center; justify-content:center; background: rgba(0,0,0,.8); z-index: 20; }
+#overlay .card { background:#121219; border:1px solid #2b2b38; border-radius:16px; padding:20px; width:min(680px, 92vw); text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,.6); }
+#overlay h1 { margin:0 0 8px; font-size:28px; }
+#overlay p { margin:8px 0 16px; line-height:1.5 }
+#overlay button { background:#2b2bff; border:0; color:white; padding:10px 16px; border-radius:10px; cursor:pointer; font-weight:600; }
+#overlay button.secondary { background:#1b1b25; border:1px solid #2b2b38; margin-left:8px; }
+#alert { position: fixed; right:12px; bottom:12px; background:#3a0d0d; color:#ffb3b3; padding:8px 12px; border:1px solid #5c1717; border-radius:10px; display:none; font-weight:700; z-index: 15; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <div class="pill">WASD/Arrows: Move</div>
+  <div class="pill">Shift: Sprint (noise!)</div>
+  <div class="pill">F: Flashlight</div>
+  <div class="pill">E: Interact/Hide/Hack</div>
+  <div class="pill right inv">Keys: <span id="keys">0</span>/8 · Stamina: <span id="stamina">100</span>% · Hidden: <span id="hidden">No</span> · Cams: <span id="cams">Online</span></div>
+</div>
+<canvas id="game" width="960" height="576"></canvas>
+<div id="overlay">
+  <div class="card">
+    <h1 id="title">Westpine Night 3.0</h1>
+    <p id="message">Collect <b>8 keys</b>, hide in <b>lockers</b> or crawlspaces, hack camera terminals, avoid Mr. Johnson, and escape outside the school. Weather and crawlspaces vary per run!</p>
+    <div>
+      <button id="play">Play</button>
+      <button id="retry" class="secondary" style="display:none">Retry</button>
+    </div>
+  </div>
+</div>
+<div id="alert">ALERT: Camera spotted you!</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const uiKeys = document.getElementById('keys');
+const uiStam = document.getElementById('stamina');
+const uiHidden = document.getElementById('hidden');
+const uiCams = document.getElementById('cams');
+const overlay = document.getElementById('overlay');
+const titleEl = document.getElementById('title');
+const msgEl = document.getElementById('message');
+const playBtn = document.getElementById('play');
+const retryBtn = document.getElementById('retry');
+const alertEl = document.getElementById('alert');
+
+const TILE = 32;
+
+// Map legend: 1=wall, 0=floor, 2=spawn, 4=key, 5=locker, 6=terminal, 7=exit, 8=crawlspace
+const MAP = [
+  // simplified for brevity; just add some 8's in classroom/corners
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,2,0,0,0,0,0,0,1,0,4,5,0,0,8,0,1,0,0,1],
+  [1,0,0,1,1,0,0,0,1,0,1,1,0,0,0,0,1,0,0,1],
+  [1,0,0,1,1,0,8,0,0,0,1,1,0,0,5,0,1,0,0,1],
+  [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
+  [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0,7,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+];
+
+const ROWS = MAP.length;
+const COLS = MAP[0].length;
+
+const keysToCollect = 8;
+
+// Find all tiles of a type
+function findAllTiles(n){ 
+  const arr=[]; 
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(MAP[r][c]===n) arr.push({x:c*TILE+TILE/2, y:r*TILE+TILE/2, r, c}); 
+  return arr; 
+}
+
+const spawn = findAllTiles(2)[0];
+const exitDoor = findAllTiles(7)[0];
+
+const player = { x: spawn.x, y: spawn.y, r: 12, speed: 2.1, sprint: 3.3, vx:0, vy:0, stamina: 100, flashlight:false, facing:0, hidden:false, inCrawlspace:false };
+const enemy = { x: spawn.x+200, y: spawn.y+40, r:14, speed:1.85, fov: Math.PI/4.5, baseRange: 260, alert:false, target:null, patrol:[{x:TILE*2,y:TILE*1},{x:TILE*15,y:TILE*1},{x:TILE*15,y:TILE*5},{x:TILE*2,y:TILE*5}], patrolIndex:0, cooldown:0, fakeoutTimer:0 };
+
+// Keys, lockers, terminals, crawlspaces
+let keys=[], lockers=[], terminals=[], crawlspaces=[];
+for(let r=0;r<ROWS;r++){
+  for(let c=0;c<COLS;c++){
+    const t = MAP[r][c];
+    const obj={x:c*TILE+TILE/2,y:r*TILE+TILE/2, taken:false};
+    if(t===4) keys.push({...obj});
+    if(t===5) lockers.push({...obj});
+    if(t===6) terminals.push({...obj});
+    if(t===8) crawlspaces.push({...obj});
+  }
+}
+
+// Cameras
+const cameras = [
+  {x:TILE*4, y:TILE*1, range:240, fov:Math.PI/5, angle:0, min:-Math.PI/3, max:Math.PI/3, dir:1, speed:0.01, cooldown:0},
+];
+
+// Weather
+const weathers = ["clear","rain","fog","storm"];
+let currentWeather = weathers[Math.floor(Math.random()*weathers.length)];
+
+// Systems
+let heldKeys=0, running=false, gameOver=false, won=false, camAlertTimer=0, camerasDisabledTimer=0;
+let lightLevel=1, flickerTimer=0, blackoutTimer=0;
+
+const HEAR_RANGE = 280;
+const input = { up:false, down:false, left:false, right:false, sprint:false, interact:false };
+onkeydown = e => { if(e.key==='ArrowUp'||e.key==='w') input.up=true; if(e.key==='ArrowDown'||e.key==='s') input.down=true; if(e.key==='ArrowLeft'||e.key==='a') input.left=true; if(e.key==='ArrowRight'||e.key==='d') input.right=true; if(e.key==='Shift') input.sprint=true; if(e.key==='f'||e.key==='F') player.flashlight=!player.flashlight; if(e.key==='e'||e.key==='E') input.interact=true; }
+onkeyup = e => { if(e.key==='ArrowUp'||e.key==='w') input.up=false; if(e.key==='ArrowDown'||e.key==='s') input.down=false; if(e.key==='ArrowLeft'||e.key==='a') input.left=false; if(e.key==='ArrowRight'||e.key==='d') input.right=false; if(e.key==='Shift') input.sprint=false; if(e.key==='e'||e.key==='E') input.interact=false; }
+
+function tileAt(x,y){ const c=Math.floor(x/TILE), r=Math.floor(y/TILE); if(r<0||r>=ROWS||c<0||c>=COLS) return 1; return MAP[r][c]; }
+function collideCircleWalls(obj){ if(tileAt(obj.x+obj.vx+Math.sign(obj.vx)*obj.r,obj.y)===1)obj.vx=0; if(tileAt(obj.x,obj.y+obj.vy+Math.sign(obj.vy)*obj.r)===1)obj.vy=0; if(tileAt(obj.x+Math.sign(obj.vx)*obj.r,obj.y+Math.sign(obj.vy)*obj.r)===1){obj.vx=0; obj.vy=0;} }
+function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+function angle(a,b){ return Math.atan2(b.y-a.y,b.x-a.x); }
+function showAlert(msg, t=120){ alertEl.innerText=msg; alertEl.style.display='block'; setTimeout(()=>alertEl.style.display='none',t*10); }
+
+function handlePlayer(){
+  let spd = input.sprint && player.stamina>0 ? player.sprint : player.speed;
+  if(input.up) player.vy=-spd; else if(input.down) player.vy=spd; else player.vy=0;
+  if(input.left) player.vx=-spd; else if(input.right) player.vx=spd; else player.vx=0;
+  if(player.vx && player.vy){ player.vx*=0.707; player.vy*=0.707; }
+  collideCircleWalls(player);
+  player.x += player.vx; player.y += player.vy;
+
+  // Sprint stamina
+  if(input.sprint && (player.vx||player.vy)) player.stamina=Math.max(0,player.stamina-0.35); else player.stamina=Math.min(100,player.stamina+0.25);
+
+  // Interact with lockers/crawlspaces
+  if(input.interact){
+    let hidden=false;
+    lockers.forEach(l=>{
+      if(!l.taken && dist(player,l)<TILE/1.5){ player.hidden=!player.hidden; hidden=true; }
+    });
+    crawlspaces.forEach(c=>{
+      if(dist(player,c)<TILE/1.5){ player.inCrawlspace=!player.inCrawlspace; player.hidden=player.inCrawlspace; hidden=true; }
+    });
+    input.interact=false;
+    if(hidden) showAlert("You hide somewhere dark...");
+  }
+
+  // Collect keys
+  keys.forEach(k=>{
+    if(!k.taken && dist(player,k)<TILE/1.5){ k.taken=true; heldKeys++; showAlert("Key collected!"); }
+  });
+
+  uiKeys.innerText=heldKeys;
+  uiStam.innerText=Math.floor(player.stamina);
+  uiHidden.innerText=player.hidden?'Yes':'No';
+}
+
+function drawMap(){
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const t = MAP[r][c];
+      let color='#101018';
+      if(t===1) color='#202030';
+      if(t===4&&!keys.find(k=>k.r===r && k.c===c)?.taken) color='#f5d700';
+      if(t===5) color='#336633';
+      if(t===6) color='#8844cc';
+      if(t===7) color='#222288';
+      if(t===8) color='#885522';
+      ctx.fillStyle=color;
+      ctx.fillRect(c*TILE,r*TILE,TILE,TILE);
+    }
+  }
+}
+
+function draw
